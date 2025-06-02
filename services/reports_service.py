@@ -21,17 +21,24 @@ class ReportsService:
             # Get sales summary
             result = db.execute_query("""
                 SELECT 
-                    COUNT(*) as total_sales,
-                    SUM(total_amount) as total_revenue,
-                    SUM(discount_amount) as total_discounts,
-                    SUM(tax_amount) as total_tax,
-                    AVG(total_amount) as average_sale,
-                    COUNT(DISTINCT customer_id) as unique_customers
+                    COALESCE(COUNT(*), 0) as total_sales,
+                    COALESCE(SUM(total_amount), 0) as total_revenue,
+                    COALESCE(SUM(discount_amount), 0) as total_discounts,
+                    COALESCE(SUM(tax_amount), 0) as total_tax,
+                    COALESCE(AVG(total_amount), 0) as average_sale,
+                    COALESCE(COUNT(DISTINCT customer_id), 0) as unique_customers
                 FROM sales 
                 WHERE sale_date BETWEEN ? AND ?
             """, (start_date, end_date))
             
-            summary = result[0] if result else {}
+            summary = result[0] if result else {
+                'total_sales': 0,
+                'total_revenue': 0,
+                'total_discounts': 0,
+                'total_tax': 0,
+                'average_sale': 0,
+                'unique_customers': 0
+            }
             
             # Get payment method breakdown
             payment_methods = db.execute_query("""

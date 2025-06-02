@@ -1,3 +1,38 @@
 {
-    "theme": "dark"
+    "theme": "dark",
+    "color_scheme": "default",
+    "colors": {
+        "primary": {
+            "light": "#3498db",
+            "dark": "#2980b9"
+        },
+        "secondary": {
+            "light": "#2ecc71",
+            "dark": "#27ae60"
+        },
+        "accent": {
+            "light": "#9b59b6",
+            "dark": "#8e44ad"
+        },
+        "warning": {
+            "light": "#f39c12",
+            "dark": "#d35400"
+        },
+        "danger": {
+            "light": "#e74c3c",
+            "dark": "#c0392b"
+        },
+        "background": {
+            "light": "#ecf0f1",
+            "dark": "#2c3e50"
+        },
+        "surface": {
+            "light": "#ffffff",
+            "dark": "#34495e"
+        },
+        "text": {
+            "light": "#2c3e50",
+            "dark": "#ecf0f1"
+        }
+    }
 }

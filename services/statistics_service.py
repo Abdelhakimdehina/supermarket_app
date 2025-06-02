@@ -48,8 +48,8 @@ class StatisticsService:
             
             # Get total customers (for now, just count sales with unique dates)
             cursor.execute("""
-                SELECT COUNT(DISTINCT DATE(sale_date))
-                FROM sales
+                SELECT COUNT(*)
+                FROM customers
             """)
             total_customers = cursor.fetchone()[0]
             
