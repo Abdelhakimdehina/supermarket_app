@@ -23,9 +23,9 @@ class StatisticsService:
             
             # Get today's sales total
             cursor.execute("""
-                SELECT COALESCE(SUM(total), 0)
+                SELECT COALESCE(SUM(total_amount), 0)
                 FROM sales
-                WHERE DATE(created_at) = ?
+                WHERE DATE(sale_date) = ?
             """, (today,))
             today_sales = cursor.fetchone()[0]
             
@@ -34,7 +34,7 @@ class StatisticsService:
                 SELECT COALESCE(SUM(quantity), 0)
                 FROM sale_items si
                 JOIN sales s ON s.id = si.sale_id
-                WHERE DATE(s.created_at) = ?
+                WHERE DATE(s.sale_date) = ?
             """, (today,))
             items_sold = cursor.fetchone()[0]
             
@@ -42,13 +42,13 @@ class StatisticsService:
             cursor.execute("""
                 SELECT COUNT(*)
                 FROM products
-                WHERE stock <= ?
+                WHERE stock_quantity <= ?
             """, (LOW_STOCK_THRESHOLD,))
             low_stock = cursor.fetchone()[0]
             
             # Get total customers (for now, just count sales with unique dates)
             cursor.execute("""
-                SELECT COUNT(DISTINCT DATE(created_at))
+                SELECT COUNT(DISTINCT DATE(sale_date))
                 FROM sales
             """)
             total_customers = cursor.fetchone()[0]
@@ -56,9 +56,9 @@ class StatisticsService:
             # Get monthly revenue
             current_month = datetime.now().strftime("%Y-%m")
             cursor.execute("""
-                SELECT COALESCE(SUM(total), 0)
+                SELECT COALESCE(SUM(total_amount), 0)
                 FROM sales
-                WHERE strftime('%Y-%m', created_at) = ?
+                WHERE strftime('%Y-%m', sale_date) = ?
             """, (current_month,))
             monthly_revenue = cursor.fetchone()[0]
             

@@ -29,7 +29,9 @@ class ProductService:
         try:
             # Base query
             query = """
-                SELECT id, name, description, price, stock, category, barcode
+                SELECT id, name, description, category, barcode,
+                       price, cost_price, stock_quantity, reorder_level,
+                       image_path, is_active, created_at, updated_at
                 FROM products
                 WHERE is_active = 1
             """
@@ -42,11 +44,16 @@ class ProductService:
             
             # Add search filter if provided
             if search_term:
-                query += " AND (name LIKE ? OR barcode LIKE ?)"
-                params.extend([f"%{search_term}%", f"%{search_term}%"])
+                query += """ AND (
+                    name LIKE ? OR 
+                    description LIKE ? OR 
+                    barcode LIKE ?
+                )"""
+                search_pattern = f"%{search_term}%"
+                params.extend([search_pattern, search_pattern, search_pattern])
             
             # Execute query
-            cursor.execute(query, params)
+            cursor.execute(query, tuple(params))
             rows = cursor.fetchall()
             
             # Convert rows to dictionaries
@@ -56,10 +63,17 @@ class ProductService:
                     'id': row[0],
                     'name': row[1],
                     'description': row[2],
-                    'price': float(row[3]),
-                    'stock': int(row[4]),
-                    'category': row[5],
-                    'barcode': row[6]
+                    'category': row[3],
+                    'barcode': row[4],
+                    'price': float(row[5]),
+                    'cost_price': float(row[6]),
+                    'stock': int(row[7]),
+                    'stock_quantity': int(row[7]),
+                    'reorder_level': int(row[8]),
+                    'image_path': row[9],
+                    'is_active': bool(row[10]),
+                    'created_at': row[11],
+                    'updated_at': row[12]
                 })
             
             return products
@@ -79,9 +93,11 @@ class ProductService:
         
         try:
             cursor.execute("""
-                SELECT id, name, description, price, stock, category, barcode
+                SELECT id, name, description, category, barcode,
+                       price, cost_price, stock_quantity, reorder_level,
+                       image_path, is_active, created_at, updated_at
                 FROM products
-                WHERE id = ? AND is_active = 1
+                WHERE id = ?
             """, (product_id,))
             
             row = cursor.fetchone()
@@ -91,10 +107,17 @@ class ProductService:
                     'id': row[0],
                     'name': row[1],
                     'description': row[2],
-                    'price': float(row[3]),
-                    'stock': int(row[4]),
-                    'category': row[5],
-                    'barcode': row[6]
+                    'category': row[3],
+                    'barcode': row[4],
+                    'price': float(row[5]),
+                    'cost_price': float(row[6]),
+                    'stock': int(row[7]),
+                    'stock_quantity': int(row[7]),
+                    'reorder_level': int(row[8]),
+                    'image_path': row[9],
+                    'is_active': bool(row[10]),
+                    'created_at': row[11],
+                    'updated_at': row[12]
                 }
             
             return None
@@ -107,31 +130,34 @@ class ProductService:
             cursor.close()
             conn.close()
     
-    def create_product(self, product_data: Dict[str, Any]) -> Optional[int]:
+    def create_product(self, product_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Create a new product"""
         conn = get_db_connection()
         cursor = conn.cursor()
         
         try:
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            
             cursor.execute("""
                 INSERT INTO products (
-                    name, description, price, stock, category, barcode,
-                    is_active, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+                    name, description, category, barcode,
+                    price, cost_price, stock_quantity, reorder_level,
+                    image_path, is_active, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
             """, (
-                product_data['name'],
-                product_data.get('description'),
-                product_data['price'],
-                product_data.get('stock', 0),
-                product_data['category'],
-                product_data.get('barcode'),
-                now, now
+                product_data.get('name', ''),
+                product_data.get('description', ''),
+                product_data.get('category', ''),
+                product_data.get('barcode', ''),
+                product_data.get('price', 0.0),
+                product_data.get('cost_price', 0.0),
+                product_data.get('stock_quantity', 0),
+                product_data.get('reorder_level', 10),
+                product_data.get('image_path', ''),
+                1  # is_active
             ))
             
             conn.commit()
-            return cursor.lastrowid
+            product_id = cursor.lastrowid
+            return self.get_product(product_id)
             
         except sqlite3.Error as e:
             print(f"Database error: {e}")
@@ -142,42 +168,38 @@ class ProductService:
             cursor.close()
             conn.close()
     
-    def update_product(self, product_id: int, product_data: Dict[str, Any]) -> bool:
+    def update_product(self, product_id: int, product_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Update an existing product"""
         conn = get_db_connection()
         cursor = conn.cursor()
         
         try:
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            
             cursor.execute("""
-                UPDATE products
-                SET name = ?,
-                    description = ?,
-                    price = ?,
-                    stock = ?,
-                    category = ?,
-                    barcode = ?,
-                    updated_at = ?
+                UPDATE products SET
+                name = ?, description = ?, category = ?, barcode = ?,
+                price = ?, cost_price = ?, stock_quantity = ?, reorder_level = ?,
+                image_path = ?, updated_at = DATETIME('now')
                 WHERE id = ?
             """, (
-                product_data['name'],
-                product_data.get('description'),
-                product_data['price'],
-                product_data.get('stock', 0),
-                product_data['category'],
-                product_data.get('barcode'),
-                now,
+                product_data.get('name', ''),
+                product_data.get('description', ''),
+                product_data.get('category', ''),
+                product_data.get('barcode', ''),
+                product_data.get('price', 0.0),
+                product_data.get('cost_price', 0.0),
+                product_data.get('stock_quantity', 0),
+                product_data.get('reorder_level', 10),
+                product_data.get('image_path', ''),
                 product_id
             ))
             
             conn.commit()
-            return True
+            return self.get_product(product_id)
             
         except sqlite3.Error as e:
             print(f"Database error: {e}")
             conn.rollback()
-            return False
+            return None
             
         finally:
             cursor.close()
@@ -189,14 +211,12 @@ class ProductService:
         cursor = conn.cursor()
         
         try:
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            
             cursor.execute("""
-                UPDATE products
-                SET is_active = 0,
-                    updated_at = ?
+                UPDATE products SET
+                is_active = 0,
+                updated_at = DATETIME('now')
                 WHERE id = ?
-            """, (now, product_id))
+            """, (product_id,))
             
             conn.commit()
             return True
@@ -216,10 +236,8 @@ class ProductService:
         cursor = conn.cursor()
         
         try:
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            
             # Get current stock
-            cursor.execute("SELECT stock FROM products WHERE id = ?", (product_id,))
+            cursor.execute("SELECT stock_quantity FROM products WHERE id = ?", (product_id,))
             row = cursor.fetchone()
             
             if not row:
@@ -234,11 +252,11 @@ class ProductService:
             
             # Update stock
             cursor.execute("""
-                UPDATE products
-                SET stock = ?,
-                    updated_at = ?
+                UPDATE products SET
+                stock_quantity = ?,
+                updated_at = DATETIME('now')
                 WHERE id = ?
-            """, (new_stock, now, product_id))
+            """, (new_stock, product_id))
             
             conn.commit()
             return True

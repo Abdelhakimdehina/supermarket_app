@@ -205,3 +205,13 @@ class Product:
         
         self.stock_quantity = new_quantity
         return self.save()
+
+    @property
+    def stock(self) -> int:
+        """Alias for stock_quantity for backward compatibility"""
+        return self.stock_quantity
+    
+    @stock.setter
+    def stock(self, value: int):
+        """Alias for stock_quantity for backward compatibility"""
+        self.stock_quantity = value

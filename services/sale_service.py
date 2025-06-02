@@ -26,17 +26,25 @@ class SaleService:
                 # Start transaction
                 cursor.execute("BEGIN TRANSACTION")
                 
+                # Generate invoice number
+                invoice_number = self._generate_invoice_number()
+                
                 # Insert sale record
                 cursor.execute("""
                     INSERT INTO sales (
-                        payment_method, subtotal, tax, total,
-                        created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
+                        invoice_number, customer_id, user_id,
+                        total_amount, discount_amount, tax_amount,
+                        payment_method, payment_status, sale_date
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'))
                 """, (
-                    sale_data["payment_method"],
-                    sale_data["subtotal"],
+                    invoice_number,
+                    sale_data.get("customer_id"),
+                    sale_data["user_id"],
+                    sale_data["total"],
+                    sale_data.get("discount", 0.0),
                     sale_data["tax"],
-                    sale_data["total"]
+                    sale_data["payment_method"],
+                    "completed",  # Default status
                 ))
                 
                 sale_id = cursor.lastrowid
@@ -46,22 +54,24 @@ class SaleService:
                     # Insert sale item
                     cursor.execute("""
                         INSERT INTO sale_items (
-                            sale_id, product_id, quantity, price,
-                            created_at, updated_at
-                        ) VALUES (?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
+                            sale_id, product_id, quantity,
+                            unit_price, discount_percent, subtotal
+                        ) VALUES (?, ?, ?, ?, ?, ?)
                     """, (
                         sale_id,
                         item["product_id"],
                         item["quantity"],
-                        item["price"]
+                        item["price"],
+                        item.get("discount_percent", 0.0),
+                        item["quantity"] * item["price"]
                     ))
                     
                     # Update product stock
                     cursor.execute("""
                         UPDATE products
-                        SET stock = stock - ?,
+                        SET stock_quantity = stock_quantity - ?,
                             updated_at = DATETIME('now')
-                        WHERE id = ? AND stock >= ?
+                        WHERE id = ? AND stock_quantity >= ?
                     """, (
                         item["quantity"],
                         item["product_id"],
@@ -92,8 +102,9 @@ class SaleService:
             # Get sale
             cursor.execute("""
                 SELECT 
-                    id, payment_method, subtotal, tax, total,
-                    created_at, updated_at
+                    id, invoice_number, customer_id, user_id,
+                    total_amount, discount_amount, tax_amount,
+                    payment_method, payment_status, sale_date
                 FROM sales
                 WHERE id = ?
             """, (sale_id,))
@@ -105,8 +116,8 @@ class SaleService:
             # Get sale items
             cursor.execute("""
                 SELECT 
-                    si.product_id, p.name, si.quantity, si.price,
-                    si.created_at, si.updated_at
+                    si.product_id, p.name, si.quantity, si.unit_price,
+                    si.discount_percent, si.subtotal
                 FROM sale_items si
                 JOIN products p ON p.id = si.product_id
                 WHERE si.sale_id = ?
@@ -117,18 +128,21 @@ class SaleService:
                 "product_name": row[1],
                 "quantity": row[2],
                 "price": float(row[3]),
-                "created_at": row[4],
-                "updated_at": row[5]
+                "discount_percent": float(row[4]),
+                "subtotal": float(row[5])
             } for row in cursor.fetchall()]
             
             return {
                 "id": sale_row[0],
-                "payment_method": sale_row[1],
-                "subtotal": float(sale_row[2]),
-                "tax": float(sale_row[3]),
+                "invoice_number": sale_row[1],
+                "customer_id": sale_row[2],
+                "user_id": sale_row[3],
                 "total": float(sale_row[4]),
-                "created_at": sale_row[5],
-                "updated_at": sale_row[6],
+                "discount": float(sale_row[5]),
+                "tax": float(sale_row[6]),
+                "payment_method": sale_row[7],
+                "payment_status": sale_row[8],
+                "sale_date": sale_row[9],
                 "items": items
             }
     
@@ -143,22 +157,23 @@ class SaleService:
             
             query = """
                 SELECT 
-                    id, payment_method, subtotal, tax, total,
-                    created_at, updated_at
+                    id, invoice_number, customer_id, user_id,
+                    total_amount, discount_amount, tax_amount,
+                    payment_method, payment_status, sale_date
                 FROM sales
                 WHERE 1=1
             """
             params = []
             
             if start_date:
-                query += " AND created_at >= ?"
+                query += " AND sale_date >= ?"
                 params.append(start_date.strftime("%Y-%m-%d %H:%M:%S"))
             
             if end_date:
-                query += " AND created_at <= ?"
+                query += " AND sale_date <= ?"
                 params.append(end_date.strftime("%Y-%m-%d %H:%M:%S"))
             
-            query += " ORDER BY created_at DESC"
+            query += " ORDER BY sale_date DESC"
             
             cursor.execute(query, params)
             sales = []
@@ -169,8 +184,8 @@ class SaleService:
                 # Get sale items
                 cursor.execute("""
                     SELECT 
-                        si.product_id, p.name, si.quantity, si.price,
-                        si.created_at, si.updated_at
+                        si.product_id, p.name, si.quantity, si.unit_price,
+                        si.discount_percent, si.subtotal
                     FROM sale_items si
                     JOIN products p ON p.id = si.product_id
                     WHERE si.sale_id = ?
@@ -181,18 +196,21 @@ class SaleService:
                     "product_name": item_row[1],
                     "quantity": item_row[2],
                     "price": float(item_row[3]),
-                    "created_at": item_row[4],
-                    "updated_at": item_row[5]
+                    "discount_percent": float(item_row[4]),
+                    "subtotal": float(item_row[5])
                 } for item_row in cursor.fetchall()]
                 
                 sales.append({
                     "id": row[0],
-                    "payment_method": row[1],
-                    "subtotal": float(row[2]),
-                    "tax": float(row[3]),
+                    "invoice_number": row[1],
+                    "customer_id": row[2],
+                    "user_id": row[3],
                     "total": float(row[4]),
-                    "created_at": row[5],
-                    "updated_at": row[6],
+                    "discount": float(row[5]),
+                    "tax": float(row[6]),
+                    "payment_method": row[7],
+                    "payment_status": row[8],
+                    "sale_date": row[9],
                     "items": items
                 })
             
@@ -209,9 +227,9 @@ class SaleService:
                 date_str = datetime.now().strftime("%Y-%m-%d")
             
             cursor.execute("""
-                SELECT COALESCE(SUM(total), 0)
+                SELECT COALESCE(SUM(total_amount), 0)
                 FROM sales
-                WHERE DATE(created_at) = DATE(?)
+                WHERE DATE(sale_date) = DATE(?)
             """, (date_str,))
             
             return float(cursor.fetchone()[0])
@@ -222,10 +240,10 @@ class SaleService:
             cursor = conn.cursor()
             
             cursor.execute("""
-                SELECT COALESCE(SUM(total), 0)
+                SELECT COALESCE(SUM(total_amount), 0)
                 FROM sales
-                WHERE strftime('%Y', created_at) = ?
-                AND strftime('%m', created_at) = ?
+                WHERE strftime('%Y', sale_date) = ?
+                AND strftime('%m', sale_date) = ?
             """, (str(year), str(month).zfill(2)))
             
             return float(cursor.fetchone()[0])
@@ -243,18 +261,18 @@ class SaleService:
                 SELECT 
                     payment_method,
                     COUNT(*) as count,
-                    SUM(total) as total
+                    SUM(total_amount) as total
                 FROM sales
                 WHERE 1=1
             """
             params = []
             
             if start_date:
-                query += " AND created_at >= ?"
+                query += " AND sale_date >= ?"
                 params.append(start_date.strftime("%Y-%m-%d %H:%M:%S"))
             
             if end_date:
-                query += " AND created_at <= ?"
+                query += " AND sale_date <= ?"
                 params.append(end_date.strftime("%Y-%m-%d %H:%M:%S"))
             
             query += " GROUP BY payment_method"
@@ -266,3 +284,30 @@ class SaleService:
                 "count": row[1],
                 "total": float(row[2])
             } for row in cursor.fetchall()]
+    
+    def _generate_invoice_number(self) -> str:
+        """Generate a unique invoice number"""
+        prefix = datetime.now().strftime('%Y%m%d')
+        
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get the last invoice number for today
+            cursor.execute("""
+                SELECT invoice_number
+                FROM sales
+                WHERE DATE(sale_date) = DATE('now')
+                ORDER BY invoice_number DESC
+                LIMIT 1
+            """)
+            
+            row = cursor.fetchone()
+            if row:
+                # Extract sequence number and increment
+                last_number = int(row[0].split('-')[-1])
+                sequence = str(last_number + 1).zfill(4)
+            else:
+                # Start with 0001
+                sequence = '0001'
+            
+            return f"INV-{prefix}-{sequence}"

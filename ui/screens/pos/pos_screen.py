@@ -13,6 +13,7 @@ from ui.base.scrollable_frame import ScrollableFrame
 from services.auth_service import AuthService
 from services.product_service import ProductService
 from services.sale_service import SaleService
+from ui.components.dialogs.customer_selector_dialog import CustomerSelectorDialog
 
 class POSScreen(BaseFrame):
     """Point of Sale screen for the application"""
@@ -701,17 +702,12 @@ class POSScreen(BaseFrame):
     
     def select_customer(self):
         """Select a customer for the sale"""
-        # In a real application, this would open a customer selection dialog
-        # For now, we'll just show a message
-        self.show_message("Not Implemented", "Customer selection is not implemented yet.")
+        def on_customer_selected(customer_data):
+            if customer_data:
+                self.selected_customer = customer_data
+                self.customer_info.configure(text=f"{customer_data['name']}")
         
-        # For demonstration, set a dummy customer
-        self.selected_customer = {
-            'id': 1,
-            'name': 'John Doe',
-            'phone': '555-1234'
-        }
-        self.customer_info.configure(text=f"{self.selected_customer['name']}")
+        CustomerSelectorDialog(self, on_customer_selected)
     
     def hold_sale(self):
         """Hold the current sale for later"""
@@ -724,40 +720,43 @@ class POSScreen(BaseFrame):
         self.show_message("Not Implemented", "Hold sale functionality is not implemented yet.")
     
     def checkout(self):
-        """Process the checkout"""
-        if not self.cart_items:
-            self.show_message("Empty Cart", "Cannot checkout an empty cart.")
-            return
-        
-        # Calculate totals
-        subtotal = sum(item['subtotal'] for item in self.cart_items)
-        
+        """Process checkout"""
         try:
-            tax = float(self.tax_entry.get() or 0)
-        except ValueError:
+            # Get current user
+            current_user = self.auth_service.get_current_user()
+            if not current_user:
+                self.show_message("Error", "No user logged in")
+                return
+            
+            # Calculate totals
+            subtotal = sum(item["quantity"] * item["product"]["price"] for item in self.cart_items)
             tax = subtotal * TAX_RATE
-            self.tax_entry.delete(0, 'end')
-            self.tax_entry.insert(0, f"{tax:.2f}")
-        
-        total = subtotal + tax
-        
-        # Prepare sale data
-        sale_data = {
-            'payment_method': self.payment_method.get(),
-            'subtotal': subtotal,
-            'tax': tax,
-            'total': total,
-            'items': [{
-                'product_id': item['product']['id'],
-                'quantity': item['quantity'],
-                'price': item['price']
-            } for item in self.cart_items]
-        }
-        
-        # Create sale
-        result = self.sale_service.create_sale(sale_data)
-        
-        if result:
+            total = subtotal + tax
+            
+            # Create sale data
+            sale_data = {
+                "user_id": current_user["id"],
+                "customer_id": self.selected_customer["id"] if self.selected_customer else None,
+                "items": [
+                    {
+                        "product_id": item["product"]["id"],
+                        "quantity": item["quantity"],
+                        "price": item["product"]["price"],
+                        "discount_percent": 0.0  # No item-level discounts for now
+                    }
+                    for item in self.cart_items
+                ],
+                "payment_method": PAYMENT_CASH,  # Default to cash for now
+                "total": total,
+                "tax": tax,
+                "discount": 0.0  # No sale-level discounts for now
+            }
+            
+            # Create sale
+            sale = self.sale_service.create_sale(sale_data)
+            if not sale:
+                raise Exception("Failed to create sale")
+            
             # Show success message
             self.show_success_message()
             
@@ -766,9 +765,9 @@ class POSScreen(BaseFrame):
             
             # Reload products to update stock
             self.load_products()
-        else:
-            # Show error message
-            self.show_message("Error", "Failed to complete the sale. Please try again.")
+            
+        except Exception as e:
+            self.show_message("Error", str(e))
     
     def show_success_message(self):
         """Show checkout success message"""

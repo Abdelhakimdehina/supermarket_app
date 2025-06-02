@@ -1,6 +1,10 @@
 import os
+import sys
 import sqlite3
 from pathlib import Path
+
+# Add project root to Python path
+sys.path.append(str(Path(__file__).parent.parent))
 
 from config.settings import DATABASE_PATH
 from config.constants import ROLE_ADMIN
@@ -131,6 +135,22 @@ def reset_database():
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             sample_products
+        )
+        
+        # Create sample customers
+        sample_customers = [
+            ('John Doe', '1234567890', 'john@example.com', '123 Main St', 100),
+            ('Jane Smith', '9876543210', 'jane@example.com', '456 Oak Ave', 50),
+            ('Bob Wilson', '5555555555', 'bob@example.com', '789 Pine St', 75),
+        ]
+        
+        cursor.executemany(
+            """
+            INSERT INTO customers (
+                name, phone, email, address, loyalty_points
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            sample_customers
         )
         
         # Commit changes
