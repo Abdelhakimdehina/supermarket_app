@@ -20,7 +20,7 @@ class AuthService:
         try:
             # Get user by username
             cursor.execute("""
-                SELECT id, username, password_hash, full_name, email, role
+                SELECT id, username, password, full_name, email, role
                 FROM users
                 WHERE username = ? AND is_active = 1
             """, (username,))
@@ -228,8 +228,8 @@ class AuthService:
         cursor = conn.cursor()
         
         try:
-            # Get current password hash
-            cursor.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,))
+            # Get current password
+            cursor.execute("SELECT password FROM users WHERE id = ?", (user_id,))
             row = cursor.fetchone()
             
             if not row or not check_password_hash(row[0], current_password):
@@ -241,7 +241,7 @@ class AuthService:
             
             cursor.execute("""
                 UPDATE users
-                SET password_hash = ?,
+                SET password = ?,
                     updated_at = ?
                 WHERE id = ?
             """, (new_password_hash, now, user_id))

@@ -82,8 +82,8 @@ class DashboardScreen(BaseFrame):
             ("🏠 Dashboard", lambda: None, True),
             ("💰 Point of Sale", lambda: self.navigate_to(SCREEN_POS), True),
             ("📦 Inventory", lambda: self.navigate_to(SCREEN_INVENTORY), True),
-            ("👥 Customers", lambda: self.navigate_to(SCREEN_CUSTOMERS), False),
-            ("📊 Reports", lambda: self.navigate_to(SCREEN_REPORTS), False),
+            ("👥 Customers", lambda: self.navigate_to(SCREEN_CUSTOMERS), True),
+            ("📊 Reports", lambda: self.navigate_to(SCREEN_REPORTS), True),
             ("⚙️ Settings", lambda: self.on_settings_click(), False)
         ]
         
@@ -94,7 +94,7 @@ class DashboardScreen(BaseFrame):
                 command=command,
                 anchor="w",
                 height=40,
-                fg_color="transparent" if text != "�� Dashboard" else ("gray80", "#2c3e50"),
+                fg_color="transparent" if text != "🏠 Dashboard" else ("gray80", "#2c3e50"),
                 text_color=("black", "white"),
                 hover_color=("gray75", "#4a6885"),
                 font=ctk.CTkFont(size=14),

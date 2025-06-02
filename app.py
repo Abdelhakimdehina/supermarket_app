@@ -3,7 +3,8 @@ from typing import Dict, Type, Optional
 
 from config.constants import (
     SCREEN_LOGIN, SCREEN_DASHBOARD, SCREEN_POS,
-    SCREEN_INVENTORY, SCREEN_SETTINGS,
+    SCREEN_INVENTORY, SCREEN_CUSTOMERS, SCREEN_SETTINGS,
+    SCREEN_REPORTS,
     SCREEN_MIN_WIDTH, SCREEN_MIN_HEIGHT
 )
 from ui.base.base_frame import BaseFrame
@@ -11,6 +12,9 @@ from ui.screens.login.login_screen import LoginScreen
 from ui.screens.dashboard.dashboard_screen import DashboardScreen
 from ui.screens.pos.pos_screen import POSScreen
 from ui.screens.inventory.inventory_screen import InventoryScreen
+from ui.screens.customers.customers_screen import CustomersScreen
+from ui.screens.settings.settings_screen import SettingsScreen
+from ui.screens.reports.reports_screen import ReportsScreen
 
 class SupermarketApp(ctk.CTk):
     """Main application class"""
@@ -36,6 +40,9 @@ class SupermarketApp(ctk.CTk):
         self.register_screen(SCREEN_DASHBOARD, DashboardScreen)
         self.register_screen(SCREEN_POS, POSScreen)
         self.register_screen(SCREEN_INVENTORY, InventoryScreen)
+        self.register_screen(SCREEN_CUSTOMERS, CustomersScreen)
+        self.register_screen(SCREEN_SETTINGS, SettingsScreen)
+        self.register_screen(SCREEN_REPORTS, ReportsScreen)
         
         # Show initial screen
         self.show_screen(SCREEN_LOGIN)

@@ -2,13 +2,13 @@ import os
 import sys
 import sqlite3
 from pathlib import Path
+from werkzeug.security import generate_password_hash
 
 # Add project root to Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from config.settings import DATABASE_PATH
 from config.constants import ROLE_ADMIN
-from utils.security import hash_password
 
 def reset_database():
     """Reset the database and create a fresh admin user"""
@@ -110,12 +110,29 @@ def reset_database():
         )
         ''')
         
-        # Create admin user
-        admin_password = hash_password("admin123")
-        cursor.execute(
-            "INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)",
-            ("admin", admin_password, "Administrator", ROLE_ADMIN)
-        )
+        # Create admin user and sample users
+        sample_users = [
+            ("admin", "admin123", "Administrator", "admin@supermarket.com", ROLE_ADMIN),
+            ("john", "john123", "John Smith", "john.smith@supermarket.com", "cashier"),
+            ("sarah", "sarah123", "Sarah Johnson", "sarah.j@supermarket.com", "manager"),
+            ("mike", "mike123", "Mike Wilson", "mike.w@supermarket.com", "cashier"),
+            ("emma", "emma123", "Emma Davis", "emma.d@supermarket.com", "inventory"),
+        ]
+        
+        for username, password, full_name, email, role in sample_users:
+            cursor.execute(
+                """
+                INSERT INTO users (
+                    username, password, full_name, email, role
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (username, generate_password_hash(password), full_name, email, role)
+            )
+        
+        print("\nAdmin user created successfully!")
+        print("Username: admin")
+        print("Password: admin123")
+        print("Please use these exact credentials to log in.\n")
         
         # Create sample products
         sample_products = [
@@ -156,7 +173,6 @@ def reset_database():
         # Commit changes
         conn.commit()
         print("Database reset successfully!")
-        print("Admin user created with username: 'admin' and password: 'admin123'")
         return True
         
     except Exception as e:
