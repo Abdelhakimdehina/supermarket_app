@@ -157,11 +157,7 @@ class LoginScreen(BaseFrame):
             self.error_label.configure(text="")
             
             # Save session if remember me is checked
-            if self.remember_var.get():
-                self.session_manager.save_session(username, True)
-            else:
-                # Clear any existing session
-                self.session_manager.clear_session()
+            self.session_manager.set_user(user, remember=self.remember_var.get())
             
             # Navigate to dashboard
             self.navigate_to(SCREEN_DASHBOARD, {"user": user})
@@ -321,16 +317,8 @@ class LoginScreen(BaseFrame):
     
     def check_saved_session(self):
         """Check for saved session and auto-login if found"""
-        # Only check session if we're not already logged in
-        session = self.session_manager.load_session()
-        if session and session.get('remember'):
-            username = session.get('username')
-            if username:
-                # Try to get user without password verification
-                user = self.auth_service.get_user_by_username(username)
-                if user:
-                    # Navigate to dashboard
-                    self.navigate_to(SCREEN_DASHBOARD, {"user": user})
-                else:
-                    # Invalid session, clear it
-                    self.session_manager.clear_session()
+        # Get current user from session
+        user = self.session_manager.get_user()
+        if user:
+            # User is already logged in, navigate to dashboard
+            self.navigate_to(SCREEN_DASHBOARD, {"user": user})

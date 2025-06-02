@@ -1,217 +1,41 @@
 import customtkinter as ctk
 from tkinter import ttk
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from CTkTable import CTkTable
+from datetime import datetime
 
 from config.constants import (
     PADDING_SMALL, PADDING_MEDIUM, PADDING_LARGE,
-    CATEGORIES
+    CATEGORIES,
+    SCREEN_DASHBOARD,
+    CURRENCY_SYMBOL
 )
 from ui.base.base_frame import BaseFrame
 from services.inventory_service import InventoryService
-
-class ProductDialog(ctk.CTkToplevel):
-    """Dialog for adding/editing products"""
-    
-    def __init__(self, parent, product: Optional[Dict[str, Any]] = None):
-        super().__init__(parent)
-        
-        self.title("Edit Product" if product else "Add Product")
-        self.geometry("400x500")
-        
-        self.product = product
-        self.result = None
-        
-        # Create form fields
-        self.create_form()
-        
-        # Populate fields if editing
-        if product:
-            self.populate_fields()
-    
-    def create_form(self):
-        """Create the form fields"""
-        # Configure grid
-        self.grid_columnconfigure(1, weight=1)
-        
-        # Name
-        row = 0
-        ctk.CTkLabel(self, text="Name:").grid(row=row, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="e")
-        self.name_entry = ctk.CTkEntry(self)
-        self.name_entry.grid(row=row, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
-        
-        # Description
-        row += 1
-        ctk.CTkLabel(self, text="Description:").grid(row=row, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="e")
-        self.desc_entry = ctk.CTkEntry(self)
-        self.desc_entry.grid(row=row, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
-        
-        # Category
-        row += 1
-        ctk.CTkLabel(self, text="Category:").grid(row=row, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="e")
-        self.category_var = ctk.StringVar()
-        self.category_menu = ctk.CTkOptionMenu(self, variable=self.category_var, values=CATEGORIES)
-        self.category_menu.grid(row=row, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
-        
-        # Barcode
-        row += 1
-        ctk.CTkLabel(self, text="Barcode:").grid(row=row, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="e")
-        self.barcode_entry = ctk.CTkEntry(self)
-        self.barcode_entry.grid(row=row, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
-        
-        # Price
-        row += 1
-        ctk.CTkLabel(self, text="Price:").grid(row=row, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="e")
-        self.price_entry = ctk.CTkEntry(self)
-        self.price_entry.grid(row=row, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
-        
-        # Stock
-        row += 1
-        ctk.CTkLabel(self, text="Stock:").grid(row=row, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="e")
-        self.stock_entry = ctk.CTkEntry(self)
-        self.stock_entry.grid(row=row, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
-        
-        # Buttons
-        row += 1
-        button_frame = ctk.CTkFrame(self, fg_color="transparent")
-        button_frame.grid(row=row, column=0, columnspan=2, pady=PADDING_MEDIUM)
-        
-        ctk.CTkButton(
-            button_frame,
-            text="Save",
-            command=self.save
-        ).pack(side="left", padx=PADDING_SMALL)
-        
-        ctk.CTkButton(
-            button_frame,
-            text="Cancel",
-            command=self.cancel
-        ).pack(side="left", padx=PADDING_SMALL)
-    
-    def populate_fields(self):
-        """Populate form fields with product data"""
-        self.name_entry.insert(0, self.product["name"])
-        self.desc_entry.insert(0, self.product.get("description", ""))
-        self.category_var.set(self.product["category"])
-        self.barcode_entry.insert(0, self.product.get("barcode", ""))
-        self.price_entry.insert(0, str(self.product["price"]))
-        self.stock_entry.insert(0, str(self.product["stock"]))
-    
-    def validate(self) -> bool:
-        """Validate form inputs"""
-        try:
-            if not self.name_entry.get().strip():
-                raise ValueError("Name is required")
-            
-            price = float(self.price_entry.get())
-            if price < 0:
-                raise ValueError("Price must be non-negative")
-            
-            stock = int(self.stock_entry.get())
-            if stock < 0:
-                raise ValueError("Stock must be non-negative")
-            
-            return True
-            
-        except ValueError as e:
-            self.show_error(str(e))
-            return False
-    
-    def show_error(self, message: str):
-        """Show error message"""
-        ctk.messagebox.showerror("Error", message)
-    
-    def save(self):
-        """Save the product data"""
-        if self.validate():
-            self.result = {
-                "name": self.name_entry.get().strip(),
-                "description": self.desc_entry.get().strip(),
-                "category": self.category_var.get(),
-                "barcode": self.barcode_entry.get().strip(),
-                "price": float(self.price_entry.get()),
-                "stock": int(self.stock_entry.get())
-            }
-            self.destroy()
-    
-    def cancel(self):
-        """Cancel the dialog"""
-        self.destroy()
-
-class StockAdjustmentDialog(ctk.CTkToplevel):
-    """Dialog for adjusting stock"""
-    
-    def __init__(self, parent, product_name: str):
-        super().__init__(parent)
-        
-        self.title(f"Adjust Stock - {product_name}")
-        self.geometry("300x200")
-        
-        self.result = None
-        
-        # Configure grid
-        self.grid_columnconfigure(1, weight=1)
-        
-        # Quantity
-        row = 0
-        ctk.CTkLabel(self, text="Quantity:").grid(row=row, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="e")
-        self.quantity_entry = ctk.CTkEntry(self)
-        self.quantity_entry.grid(row=row, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
-        
-        # Note: Positive for additions, negative for removals
-        row += 1
-        ctk.CTkLabel(
-            self,
-            text="(Use positive numbers to add stock, negative to remove)",
-            font=("", 10)
-        ).grid(row=row, column=1, padx=PADDING_SMALL, sticky="w")
-        
-        # Buttons
-        row += 1
-        button_frame = ctk.CTkFrame(self, fg_color="transparent")
-        button_frame.grid(row=row, column=0, columnspan=2, pady=PADDING_MEDIUM)
-        
-        ctk.CTkButton(
-            button_frame,
-            text="Save",
-            command=self.save
-        ).pack(side="left", padx=PADDING_SMALL)
-        
-        ctk.CTkButton(
-            button_frame,
-            text="Cancel",
-            command=self.cancel
-        ).pack(side="left", padx=PADDING_SMALL)
-    
-    def validate(self) -> bool:
-        """Validate form inputs"""
-        try:
-            quantity = int(self.quantity_entry.get())
-            if quantity == 0:
-                raise ValueError("Quantity cannot be zero")
-            return True
-        except ValueError as e:
-            ctk.messagebox.showerror("Error", str(e))
-            return False
-    
-    def save(self):
-        """Save the adjustment"""
-        if self.validate():
-            self.result = int(self.quantity_entry.get())
-            self.destroy()
-    
-    def cancel(self):
-        """Cancel the dialog"""
-        self.destroy()
+from services.auth_service import AuthService
+from utils.session import SessionManager
+from ui.components.dialogs.product_dialog import ProductDialog
+from ui.components.dialogs.stock_adjustment_dialog import StockAdjustmentDialog
 
 class InventoryScreen(BaseFrame):
     """Inventory management screen"""
     
     def __init__(self, master, **kwargs):
         self.inventory_service = InventoryService()
+        self.auth_service = AuthService()
+        self.session_manager = SessionManager()
+        self.current_sort_column = None
+        self.sort_ascending = True
+        self.products = []
+        self.selected_product = None
+        
         super().__init__(master, **kwargs)
+        
+        # Set background color
+        self.configure(fg_color=("#f0f0f0", "#2c3e50"))
     
     def init_ui(self):
-        """Initialize the UI components"""
+        """Initialize UI components"""
         # Configure grid
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
@@ -219,257 +43,415 @@ class InventoryScreen(BaseFrame):
         # Create header
         self.create_header()
         
-        # Create search bar
-        self.create_search_bar()
+        # Create toolbar
+        self.create_toolbar()
         
-        # Create product table
-        self.create_product_table()
-        
-        # Load products
-        self.load_products()
+        # Create main content
+        self.create_content()
     
     def create_header(self):
-        """Create the header section"""
+        """Create page header"""
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", padx=PADDING_MEDIUM, pady=PADDING_MEDIUM)
+        header.grid(row=0, column=0, sticky="ew", padx=PADDING_MEDIUM, pady=(PADDING_MEDIUM, PADDING_SMALL))
         header.grid_columnconfigure(1, weight=1)
         
-        # Title
-        ctk.CTkLabel(
+        # Back button with icon
+        back_button = ctk.CTkButton(
             header,
-            text="Inventory Management",
-            font=ctk.CTkFont(size=24, weight="bold")
-        ).grid(row=0, column=0, sticky="w")
+            text="← Back",
+            command=lambda: self.navigate_to(SCREEN_DASHBOARD),
+            fg_color="transparent",
+            text_color=("gray20", "gray80"),
+            hover_color=("gray70", "gray30"),
+            width=100,
+            height=32
+        )
+        back_button.grid(row=0, column=0, padx=(0, PADDING_MEDIUM))
+        
+        # Page title
+        title = ctk.CTkLabel(
+            header,
+            text="📦 Inventory Management",
+            font=ctk.CTkFont(size=24, weight="bold"),
+            anchor="w"
+        )
+        title.grid(row=0, column=1, sticky="w")
+        
+        # Stats summary
+        stats_frame = ctk.CTkFrame(header, fg_color=("gray90", "gray20"))
+        stats_frame.grid(row=0, column=2, padx=(PADDING_MEDIUM, 0))
+        
+        total_products = ctk.CTkLabel(
+            stats_frame,
+            text="Total Products: 0",
+            font=ctk.CTkFont(size=12),
+            padx=PADDING_MEDIUM,
+            pady=PADDING_SMALL
+        )
+        total_products.grid(row=0, column=0)
+        
+        ctk.CTkLabel(
+            stats_frame,
+            text="•",
+            font=ctk.CTkFont(size=12),
+            padx=PADDING_SMALL
+        ).grid(row=0, column=1)
+        
+        low_stock = ctk.CTkLabel(
+            stats_frame,
+            text="Low Stock: 0",
+            font=ctk.CTkFont(size=12),
+            text_color=("#e74c3c", "#ff6b6b"),
+            padx=PADDING_MEDIUM,
+            pady=PADDING_SMALL
+        )
+        low_stock.grid(row=0, column=2)
+        
+        self.stat_labels = {
+            'total_products': total_products,
+            'low_stock': low_stock
+        }
+    
+    def create_toolbar(self):
+        """Create toolbar with actions and search"""
+        toolbar = ctk.CTkFrame(self, fg_color="transparent")
+        toolbar.grid(row=1, column=0, sticky="ew", padx=PADDING_MEDIUM, pady=PADDING_SMALL)
+        toolbar.grid_columnconfigure(1, weight=1)
+        
+        # Left side - Action buttons
+        actions_frame = ctk.CTkFrame(toolbar, fg_color="transparent")
+        actions_frame.grid(row=0, column=0, sticky="w")
         
         # Add Product button
-        ctk.CTkButton(
-            header,
-            text="Add Product",
-            command=self.add_product
-        ).grid(row=0, column=2, padx=PADDING_SMALL)
-    
-    def create_search_bar(self):
-        """Create the search bar"""
-        search_frame = ctk.CTkFrame(self)
-        search_frame.grid(row=1, column=0, sticky="ew", padx=PADDING_MEDIUM)
-        search_frame.grid_columnconfigure(0, weight=1)
-        
-        # Search entry
-        self.search_entry = ctk.CTkEntry(
-            search_frame,
-            placeholder_text="Search products..."
+        add_button = ctk.CTkButton(
+            actions_frame,
+            text="+ Add Product",
+            command=self.add_product,
+            fg_color="#2ecc71",
+            hover_color="#27ae60",
+            height=32
         )
-        self.search_entry.grid(row=0, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
-        self.search_entry.bind("<Return>", lambda e: self.search_products())
+        add_button.grid(row=0, column=0, padx=(0, PADDING_SMALL))
         
-        # Search button
-        ctk.CTkButton(
-            search_frame,
-            text="Search",
-            command=self.search_products
-        ).grid(row=0, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL)
-    
-    def create_product_table(self):
-        """Create the product table"""
-        # Create frame for treeview
-        table_frame = ctk.CTkFrame(self)
-        table_frame.grid(row=2, column=0, sticky="nsew", padx=PADDING_MEDIUM, pady=PADDING_MEDIUM)
-        table_frame.grid_rowconfigure(0, weight=1)
-        table_frame.grid_columnconfigure(0, weight=1)
-        
-        # Create treeview
-        self.tree = ttk.Treeview(
-            table_frame,
-            columns=("name", "category", "price", "stock", "barcode"),
-            show="headings"
+        # Stock Adjustment button
+        adjust_button = ctk.CTkButton(
+            actions_frame,
+            text="⚖️ Adjust Stock",
+            command=self.adjust_stock,
+            fg_color="#3498db",
+            hover_color="#2980b9",
+            height=32,
+            state="disabled"
         )
+        adjust_button.grid(row=0, column=1, padx=PADDING_SMALL)
         
-        # Configure columns
-        self.tree.heading("name", text="Name")
-        self.tree.heading("category", text="Category")
-        self.tree.heading("price", text="Price")
-        self.tree.heading("stock", text="Stock")
-        self.tree.heading("barcode", text="Barcode")
-        
-        self.tree.column("name", width=200)
-        self.tree.column("category", width=150)
-        self.tree.column("price", width=100)
-        self.tree.column("stock", width=100)
-        self.tree.column("barcode", width=150)
-        
-        # Add scrollbar
-        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        
-        # Pack widgets
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        scrollbar.grid(row=0, column=1, sticky="ns")
-        
-        # Bind double-click
-        self.tree.bind("<Double-1>", self.edit_selected_product)
-        
-        # Create context menu
-        self.context_menu = self.create_context_menu()
-        self.tree.bind("<Button-3>", self.show_context_menu)
-    
-    def create_context_menu(self) -> ctk.CTkFrame:
-        """Create the context menu"""
-        menu = ctk.CTkFrame(self)
-        
-        ctk.CTkButton(
-            menu,
-            text="Edit",
-            command=lambda: self.edit_selected_product()
-        ).pack(fill="x", padx=1, pady=1)
-        
-        ctk.CTkButton(
-            menu,
-            text="Adjust Stock",
-            command=self.adjust_selected_stock
-        ).pack(fill="x", padx=1, pady=1)
-        
-        ctk.CTkButton(
-            menu,
-            text="Delete",
-            command=self.delete_selected_product,
+        # Delete button
+        delete_button = ctk.CTkButton(
+            actions_frame,
+            text="🗑️ Delete",
+            command=self.delete_product,
             fg_color="#e74c3c",
-            hover_color="#c0392b"
-        ).pack(fill="x", padx=1, pady=1)
+            hover_color="#c0392b",
+            height=32,
+            state="disabled"
+        )
+        delete_button.grid(row=0, column=2, padx=PADDING_SMALL)
         
-        return menu
+        self.action_buttons = {
+            'adjust': adjust_button,
+            'delete': delete_button
+        }
+        
+        # Right side - Search and filter
+        search_frame = ctk.CTkFrame(toolbar, fg_color="transparent")
+        search_frame.grid(row=0, column=1, sticky="e")
+        
+        # Search box
+        self.search_var = ctk.StringVar()
+        self.search_var.trace_add("write", lambda *args: self.on_search())
+        
+        search_entry = ctk.CTkEntry(
+            search_frame,
+            placeholder_text="Search products...",
+            textvariable=self.search_var,
+            width=200,
+            height=32
+        )
+        search_entry.grid(row=0, column=0, padx=PADDING_SMALL)
+        
+        # Filter dropdown
+        filter_values = ["All Products", "Low Stock", "Out of Stock"]
+        self.filter_var = ctk.StringVar(value=filter_values[0])
+        
+        filter_menu = ctk.CTkOptionMenu(
+            search_frame,
+            values=filter_values,
+            variable=self.filter_var,
+            command=self.on_filter_change,
+            width=120,
+            height=32,
+            dynamic_resizing=False
+        )
+        filter_menu.grid(row=0, column=1, padx=(PADDING_SMALL, 0))
     
-    def show_context_menu(self, event):
-        """Show the context menu"""
-        item = self.tree.identify_row(event.y)
-        if item:
-            self.tree.selection_set(item)
-            self.context_menu.place(x=event.x_root, y=event.y_root)
-            self.bind("<Button-1>", self.hide_context_menu)
-    
-    def hide_context_menu(self, event=None):
-        """Hide the context menu"""
-        self.context_menu.place_forget()
-        if event:
-            self.unbind("<Button-1>")
+    def create_content(self):
+        """Create main content area with product table"""
+        # Table container with border
+        container = ctk.CTkFrame(self)
+        container.grid(row=2, column=0, sticky="nsew", padx=PADDING_MEDIUM, pady=(0, PADDING_MEDIUM))
+        container.grid_columnconfigure(0, weight=1)
+        container.grid_rowconfigure(1, weight=1)
+        
+        # Table headers
+        headers = [
+            "Product ID",
+            "Name",
+            "Category",
+            f"Price ({CURRENCY_SYMBOL})",
+            "Stock",
+            "Last Updated"
+        ]
+        
+        # Header row with sort buttons
+        header_frame = ctk.CTkFrame(container, fg_color=("gray85", "gray25"))
+        header_frame.grid(row=0, column=0, sticky="ew")
+        
+        for col, text in enumerate(headers):
+            frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+            frame.grid(row=0, column=col, sticky="ew", padx=1)
+            frame.grid_columnconfigure(0, weight=1)
+            
+            btn = ctk.CTkButton(
+                frame,
+                text=text + " ↕",
+                command=lambda c=col: self.sort_table(c),
+                fg_color="transparent",
+                text_color=("gray20", "gray80"),
+                hover_color=("gray75", "gray30"),
+                height=32,
+                anchor="w"
+            )
+            btn.grid(row=0, column=0, sticky="ew")
+        
+        # Table frame
+        table_frame = ctk.CTkFrame(container, fg_color="transparent")
+        table_frame.grid(row=1, column=0, sticky="nsew")
+        table_frame.grid_columnconfigure(0, weight=1)
+        table_frame.grid_rowconfigure(0, weight=1)
+        
+        # Create table
+        self.table = CTkTable(
+            table_frame,
+            values=[["" for _ in headers]],
+            header_color=("gray85", "gray25"),
+            colors=[("white", "gray20"), ("gray95", "gray15")],
+            hover_color=("gray90", "gray30"),
+            command=self.on_row_select
+        )
+        self.table.grid(row=0, column=0, sticky="nsew")
+        
+        # Load initial data
+        self.load_products()
     
     def load_products(self):
-        """Load all products into the table"""
-        # Clear existing items
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        
-        # Load products
-        products = self.inventory_service.get_all_products()
-        
-        # Add to table
-        for product in products:
-            self.tree.insert("", "end",
-                values=(
-                    product["name"],
-                    product["category"],
-                    f"${product['price']:.2f}",
-                    product["stock"],
-                    product.get("barcode", "")
-                ),
-                tags=(str(product["id"]),)
-            )
+        """Load products from database"""
+        try:
+            # Get products
+            self.products = self.inventory_service.get_all_products()
+            
+            # Update stats
+            self.update_stats()
+            
+            # Apply current filter
+            self.apply_filter()
+            
+        except Exception as e:
+            self.show_message("Error", f"Failed to load products: {str(e)}")
     
-    def search_products(self):
-        """Search products"""
-        search_term = self.search_entry.get().strip()
-        if not search_term:
-            self.load_products()
+    def update_stats(self):
+        """Update statistics labels"""
+        low_stock_count = sum(1 for p in self.products if p['stock'] <= p.get('low_stock_threshold', 10))
+        
+        self.stat_labels['total_products'].configure(text=f"Total Products: {len(self.products)}")
+        self.stat_labels['low_stock'].configure(text=f"Low Stock: {low_stock_count}")
+    
+    def update_table(self, products: List[Dict]):
+        """Update table with filtered/sorted products"""
+        # Clear selection
+        self.selected_product = None
+        self.update_button_states()
+        
+        # Format data for table
+        table_data = []
+        for product in products:
+            # Get last updated time with fallback
+            try:
+                last_updated = datetime.fromisoformat(product.get('last_updated', '')).strftime("%Y-%m-%d %H:%M")
+            except (ValueError, TypeError):
+                last_updated = "N/A"
+            
+            table_data.append([
+                str(product['id']),
+                product['name'],
+                product['category'],
+                f"{product['price']:.2f}",
+                str(product['stock']),
+                last_updated
+            ])
+        
+        # Update table
+        if not table_data:
+            table_data = [["No products found"] + ["" for _ in range(5)]]
+        
+        self.table.update_values(table_data)
+    
+    def apply_filter(self):
+        """Apply current filter and search to products"""
+        filtered_products = self.products.copy()
+        
+        # Apply search
+        if self.search_var.get():
+            search_term = self.search_var.get().lower()
+            filtered_products = [
+                p for p in filtered_products
+                if search_term in p['name'].lower() or
+                search_term in p['category'].lower() or
+                search_term in str(p['id'])
+            ]
+        
+        # Apply filter
+        filter_type = self.filter_var.get()
+        if filter_type == "Low Stock":
+            filtered_products = [
+                p for p in filtered_products
+                if p['stock'] <= p.get('low_stock_threshold', 10) and p['stock'] > 0
+            ]
+        elif filter_type == "Out of Stock":
+            filtered_products = [p for p in filtered_products if p['stock'] == 0]
+        
+        # Apply sort
+        if self.current_sort_column is not None:
+            reverse = not self.sort_ascending
+            key_map = {
+                0: lambda x: x['id'],
+                1: lambda x: x['name'].lower(),
+                2: lambda x: x['category'].lower(),
+                3: lambda x: x['price'],
+                4: lambda x: x['stock'],
+                5: lambda x: x['last_updated']
+            }
+            filtered_products.sort(key=key_map[self.current_sort_column], reverse=reverse)
+        
+        self.update_table(filtered_products)
+    
+    def sort_table(self, column: int):
+        """Sort table by column"""
+        if self.current_sort_column == column:
+            self.sort_ascending = not self.sort_ascending
+        else:
+            self.current_sort_column = column
+            self.sort_ascending = True
+        
+        self.apply_filter()
+    
+    def on_search(self):
+        """Handle search input change"""
+        self.apply_filter()
+    
+    def on_filter_change(self, value: str):
+        """Handle filter change"""
+        self.apply_filter()
+    
+    def on_row_select(self, row: int):
+        """Handle row selection"""
+        if not isinstance(row, int) or row == 0 or not self.products:  # Header row or no products
             return
         
-        # Clear existing items
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        
-        # Search products
-        products = self.inventory_service.search_products(search_term)
-        
-        # Add to table
-        for product in products:
-            self.tree.insert("", "end",
-                values=(
-                    product["name"],
-                    product["category"],
-                    f"${product['price']:.2f}",
-                    product["stock"],
-                    product.get("barcode", "")
-                ),
-                tags=(str(product["id"]),)
-            )
+        # Get selected product
+        try:
+            row_data = self.table.get_row(row)
+            if not row_data:
+                return
+                
+            product_id = int(row_data[0])
+            self.selected_product = next(p for p in self.products if p['id'] == product_id)
+            self.update_button_states()
+        except (ValueError, StopIteration, IndexError):
+            self.selected_product = None
+            self.update_button_states()
     
-    def get_selected_product(self) -> Optional[Dict[str, Any]]:
-        """Get the selected product"""
-        selection = self.tree.selection()
-        if not selection:
-            return None
-        
-        product_id = int(self.tree.item(selection[0])["tags"][0])
-        return self.inventory_service.get_product(product_id)
+    def update_button_states(self):
+        """Update action button states based on selection"""
+        state = "normal" if self.selected_product else "disabled"
+        for button in self.action_buttons.values():
+            button.configure(state=state)
     
     def add_product(self):
-        """Add a new product"""
+        """Show dialog to add new product"""
         dialog = ProductDialog(self)
-        self.wait_window(dialog)
-        
         if dialog.result:
-            if self.inventory_service.add_product(dialog.result):
+            try:
+                self.inventory_service.add_product(dialog.result)
                 self.load_products()
-            else:
-                self.show_error("Failed to add product")
+                self.show_message("Success", "Product added successfully!")
+            except Exception as e:
+                self.show_message("Error", f"Failed to add product: {str(e)}")
     
-    def edit_selected_product(self, event=None):
-        """Edit the selected product"""
-        product = self.get_selected_product()
-        if not product:
+    def edit_product(self):
+        """Show dialog to edit selected product"""
+        if not self.selected_product:
             return
         
-        dialog = ProductDialog(self, product)
-        self.wait_window(dialog)
-        
+        dialog = ProductDialog(self, self.selected_product)
         if dialog.result:
-            if self.inventory_service.update_product(product["id"], dialog.result):
+            try:
+                self.inventory_service.update_product(dialog.result)
                 self.load_products()
-            else:
-                self.show_error("Failed to update product")
+                self.show_message("Success", "Product updated successfully!")
+            except Exception as e:
+                self.show_message("Error", f"Failed to update product: {str(e)}")
     
-    def adjust_selected_stock(self):
-        """Adjust stock for selected product"""
-        product = self.get_selected_product()
-        if not product:
+    def delete_product(self):
+        """Delete selected product"""
+        if not self.selected_product:
             return
         
-        dialog = StockAdjustmentDialog(self, product["name"])
-        self.wait_window(dialog)
-        
-        if dialog.result is not None:
-            if self.inventory_service.adjust_stock(product["id"], dialog.result):
+        if self.show_confirmation("Delete Product", f"Are you sure you want to delete {self.selected_product['name']}?"):
+            try:
+                self.inventory_service.delete_product(self.selected_product['id'])
                 self.load_products()
-            else:
-                self.show_error("Failed to adjust stock")
+                self.show_message("Success", "Product deleted successfully!")
+            except Exception as e:
+                self.show_message("Error", f"Failed to delete product: {str(e)}")
     
-    def delete_selected_product(self):
-        """Delete the selected product"""
-        product = self.get_selected_product()
-        if not product:
+    def adjust_stock(self):
+        """Show dialog to adjust stock"""
+        if not self.selected_product:
             return
         
-        if ctk.messagebox.askyesno(
-            "Confirm Delete",
-            f"Are you sure you want to delete {product['name']}?"
-        ):
-            if self.inventory_service.delete_product(product["id"]):
+        dialog = StockAdjustmentDialog(self, self.selected_product)
+        if dialog.result:
+            try:
+                self.inventory_service.adjust_stock(
+                    self.selected_product['id'],
+                    dialog.result['quantity'],
+                    dialog.result['reason']
+                )
                 self.load_products()
-            else:
-                self.show_error("Failed to delete product")
-    
-    def show_error(self, message: str):
-        """Show error message"""
-        ctk.messagebox.showerror("Error", message)
+                self.show_message("Success", "Stock adjusted successfully!")
+            except Exception as e:
+                self.show_message("Error", f"Failed to adjust stock: {str(e)}")
     
     def on_screen_shown(self):
         """Called when screen is shown"""
-        self.load_products() 
+        self.load_products()
+
+    def navigate_to(self, screen_name: str, data: Optional[Dict] = None):
+        """Override navigate_to to include user data"""
+        if not data:
+            data = {}
+        # Include current user data when navigating
+        user_data = self.auth_service.get_current_user()
+        if user_data:
+            data["user"] = user_data
+        super().navigate_to(screen_name, data) 

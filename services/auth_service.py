@@ -27,14 +27,17 @@ class AuthService:
             
             user = cursor.fetchone()
             
-            if user and (password is None or check_password_hash(user[2], password)):
-                return {
+            if user and check_password_hash(user[2], password):
+                user_data = {
                     'id': user[0],
                     'username': user[1],
                     'full_name': user[3],
                     'email': user[4],
                     'role': user[5]
                 }
+                # Set user in session
+                self.session_manager.set_user(user_data)
+                return user_data
             
             return None
             
@@ -254,6 +257,18 @@ class AuthService:
         finally:
             cursor.close()
             conn.close()
+    
+    def login(self, username: str, password: str) -> Optional[Dict[str, Any]]:
+        """Authenticate user and return user data if successful"""
+        user = self.authenticate(username, password)
+        if user:
+            self.session_manager.set_user(user)
+            return user
+        return None
+    
+    def get_current_user(self) -> Optional[Dict[str, Any]]:
+        """Get the currently logged in user"""
+        return self.session_manager.get_user()
     
     def logout(self) -> bool:
         """Log out the current user by clearing the session"""
