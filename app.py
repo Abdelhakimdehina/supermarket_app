@@ -1,5 +1,7 @@
 import customtkinter as ctk
 from typing import Dict, Type, Optional
+import json
+import os
 
 from config.constants import (
     SCREEN_LOGIN, SCREEN_DASHBOARD, SCREEN_POS,
@@ -20,6 +22,9 @@ class SupermarketApp(ctk.CTk):
     """Main application class"""
     
     def __init__(self):
+        # Load settings before initializing UI
+        self.load_settings()
+        
         super().__init__()
         
         # Configure window
@@ -46,6 +51,23 @@ class SupermarketApp(ctk.CTk):
         
         # Show initial screen
         self.show_screen(SCREEN_LOGIN)
+    
+    def load_settings(self):
+        """Load application settings"""
+        settings_file = os.path.join(os.path.dirname(__file__), 'config', 'settings.json')
+        
+        try:
+            if os.path.exists(settings_file):
+                with open(settings_file, 'r') as f:
+                    settings = json.load(f)
+                    
+                    # Apply theme
+                    theme = settings.get('theme', 'system')
+                    ctk.set_appearance_mode(theme)
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+            # Use default theme
+            ctk.set_appearance_mode("system")
     
     def register_screen(self, name: str, screen_class: Type[BaseFrame]):
         """Register a screen with the application"""

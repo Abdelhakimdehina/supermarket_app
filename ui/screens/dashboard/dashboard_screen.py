@@ -84,7 +84,7 @@ class DashboardScreen(BaseFrame):
             ("📦 Inventory", lambda: self.navigate_to(SCREEN_INVENTORY), True),
             ("👥 Customers", lambda: self.navigate_to(SCREEN_CUSTOMERS), True),
             ("📊 Reports", lambda: self.navigate_to(SCREEN_REPORTS), True),
-            ("⚙️ Settings", lambda: self.on_settings_click(), False)
+            ("⚙️ Settings", lambda: self.navigate_to(SCREEN_SETTINGS), True)
         ]
         
         for idx, (text, command, enabled) in enumerate(nav_buttons, start=2):
