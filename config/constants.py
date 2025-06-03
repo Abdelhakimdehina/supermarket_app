@@ -106,3 +106,18 @@ ERROR_INVALID_QUANTITY = "Invalid quantity specified"
 ERROR_INVALID_PRICE = "Invalid price specified"
 ERROR_INVALID_PAYMENT = "Invalid payment method"
 ERROR_TRANSACTION_FAILED = "Transaction failed. Please try again."
+
+# Color scheme
+COLORS = {
+    "bg_dark": "#1a1a1a",
+    "bg_darker": "#2d2d2d",
+    "card_bg": "#2d2d2d",
+    "text_primary": "#ffffff",
+    "text_secondary": "#a0a0a0",
+    "accent_green": "#00ff88",
+    "accent_blue": "#00a8ff",
+    "accent_red": "#ff4757",
+    "accent_purple": "#8b5cf6",
+    "accent_yellow": "#ffd700",
+    "accent_orange": "#ff6348"
+}
