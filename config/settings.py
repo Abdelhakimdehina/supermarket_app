@@ -31,7 +31,7 @@ DEFAULT_ADMIN_USERNAME = "admin"
 DEFAULT_ADMIN_PASSWORD = "admin123"
 
 # Currency settings
-CURRENCY_SYMBOL = "$"
+CURRENCY_SYMBOL = "DA"
 DECIMAL_PLACES = 2
 
 # Date format

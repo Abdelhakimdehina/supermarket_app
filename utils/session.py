@@ -50,6 +50,12 @@ class SessionManager:
         """Get the current user"""
         return SessionManager._user
     
+    def get_user_id(self) -> Optional[int]:
+        """Get the current user ID"""
+        if SessionManager._user:
+            return SessionManager._user.get('id')
+        return None
+    
     def clear_session(self):
         """Clear the current session"""
         SessionManager._user = None

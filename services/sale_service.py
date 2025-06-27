@@ -51,6 +51,23 @@ class SaleService:
                 
                 # Insert sale items and update stock
                 for item in sale_data["items"]:
+                    # Get current stock
+                    cursor.execute("""
+                        SELECT stock_quantity
+                        FROM products
+                        WHERE id = ? AND stock_quantity >= ?
+                    """, (
+                        item["product_id"],
+                        item["quantity"]
+                    ))
+                    
+                    row = cursor.fetchone()
+                    if not row:
+                        raise Exception(f"Not enough stock for product {item['product_id']}")
+                    
+                    current_stock = row[0]
+                    new_stock = current_stock - item["quantity"]
+                    
                     # Insert sale item
                     cursor.execute("""
                         INSERT INTO sale_items (
@@ -69,18 +86,31 @@ class SaleService:
                     # Update product stock
                     cursor.execute("""
                         UPDATE products
-                        SET stock_quantity = stock_quantity - ?,
+                        SET stock_quantity = ?,
                             updated_at = DATETIME('now')
-                        WHERE id = ? AND stock_quantity >= ?
+                        WHERE id = ?
                     """, (
-                        item["quantity"],
-                        item["product_id"],
-                        item["quantity"]
+                        new_stock,
+                        item["product_id"]
                     ))
                     
-                    if cursor.rowcount == 0:
-                        # Not enough stock
-                        raise Exception(f"Not enough stock for product {item['product_id']}")
+                    # Record inventory transaction
+                    cursor.execute("""
+                        INSERT INTO inventory_transactions (
+                            product_id, quantity_change, previous_quantity,
+                            new_quantity, transaction_type, reason,
+                            notes, user_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        item["product_id"],
+                        -item["quantity"],  # Negative for sales
+                        current_stock,
+                        new_stock,
+                        'sale',
+                        f'Sale #{invoice_number}',
+                        None,
+                        sale_data["user_id"]
+                    ))
                 
                 # Commit transaction
                 conn.commit()

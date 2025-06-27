@@ -153,16 +153,14 @@ class CustomersScreen(BaseFrame):
         search_entry.grid(row=0, column=0, padx=PADDING_SMALL)
     
     def create_table(self):
-        """Create customer table"""
-        # Table container with border
+        """Create customer table with enhanced style"""
         container = ctk.CTkFrame(self)
         container.grid(row=2, column=0, sticky="nsew", padx=PADDING_MEDIUM, pady=(0, PADDING_MEDIUM))
         container.grid_columnconfigure(0, weight=1)
         container.grid_rowconfigure(1, weight=1)
-        
-        # Table headers
+
         headers = [
-            "ID",
+            "Customer ID",
             "Name",
             "Phone",
             "Email",
@@ -170,16 +168,15 @@ class CustomersScreen(BaseFrame):
             "Loyalty Points",
             "Last Updated"
         ]
-        
+        self.table_headers = headers
+
         # Header row with sort buttons
         header_frame = ctk.CTkFrame(container, fg_color=("gray85", "gray25"))
         header_frame.grid(row=0, column=0, sticky="ew")
-        
         for col, text in enumerate(headers):
             frame = ctk.CTkFrame(header_frame, fg_color="transparent")
             frame.grid(row=0, column=col, sticky="ew", padx=1)
             frame.grid_columnconfigure(0, weight=1)
-            
             btn = ctk.CTkButton(
                 frame,
                 text=text + " ↕",
@@ -191,23 +188,37 @@ class CustomersScreen(BaseFrame):
                 anchor="w"
             )
             btn.grid(row=0, column=0, sticky="ew")
-        
+
         # Table frame
         table_frame = ctk.CTkFrame(container, fg_color="transparent")
         table_frame.grid(row=1, column=0, sticky="nsew")
         table_frame.grid_columnconfigure(0, weight=1)
         table_frame.grid_rowconfigure(0, weight=1)
-        
-        # Create table
-        self.table = CTkTable(
-            table_frame,
-            values=[["" for _ in headers]],
-            header_color=("gray85", "gray25"),
-            colors=[("white", "gray20"), ("gray95", "gray15")],
-            hover_color=("gray90", "gray30"),
-            command=self.on_row_select
-        )
-        self.table.grid(row=0, column=0, sticky="nsew")
+
+        # Create ttk.Treeview
+        import tkinter.ttk as ttk
+        columns = ["id", "name", "phone", "email", "address", "loyalty_points", "last_updated"]
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse", height=12)
+        for idx, col in enumerate(columns):
+            self.tree.heading(col, text=headers[idx])
+            self.tree.column(col, anchor="center", width=120)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+
+        # Add vertical scrollbar
+        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=vsb.set)
+        vsb.grid(row=0, column=1, sticky="ns")
+
+        # Bind row selection event
+        self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
+
+        # Style for highlighting (optional)
+        style = ttk.Style()
+        style.map("Treeview", background=[('selected', '#b3d9ff')])
+        style.configure("LowPoints.Treeview", background="#fff3cd")
+        style.configure("NoPoints.Treeview", background="#ffcccc")
+
+        self.load_customers()
     
     def load_customers(self):
         """Load customers from database"""
@@ -247,7 +258,13 @@ class CustomersScreen(BaseFrame):
         if not table_data:
             table_data = [["No customers found"] + ["" for _ in range(6)]]
         
-        self.table.update_values(table_data)
+        # Clear the treeview
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        
+        # Insert new data
+        for row in table_data:
+            self.tree.insert("", "end", values=row)
     
     def apply_filter(self):
         """Apply current filter and search to customers"""
@@ -293,18 +310,18 @@ class CustomersScreen(BaseFrame):
         """Handle search input change"""
         self.apply_filter()
     
-    def on_row_select(self, row: int):
-        """Handle row selection"""
-        if not isinstance(row, int) or row == 0 or not self.customers:  # Header row or no customers
+    def on_tree_select(self, event):
+        """Handle treeview row selection"""
+        selected_item = self.tree.selection()
+        if not selected_item:  # No selection
+            self.selected_customer = None
+            self.update_button_states()
             return
         
         # Get selected customer
         try:
-            row_data = self.table.get_row(row)
-            if not row_data:
-                return
-                
-            customer_id = int(row_data[0])
+            item_id = selected_item[0]
+            customer_id = int(self.tree.item(item_id, "values")[0])
             self.selected_customer = next(c for c in self.customers if c.id == customer_id)
             self.update_button_states()
         except (ValueError, StopIteration, IndexError):
@@ -357,4 +374,4 @@ class CustomersScreen(BaseFrame):
     
     def on_screen_shown(self):
         """Called when screen is shown"""
-        self.load_customers() 
+        self.load_customers()

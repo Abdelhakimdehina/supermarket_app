@@ -19,6 +19,8 @@ class ProductDialog(ctk.CTkToplevel):
         self.product = product
         self.result = None
         
+        self.protocol("WM_DELETE_WINDOW", self.cancel)  # Ensure cancel logic on window close
+        
         # Create form fields
         self.create_form()
         
@@ -61,6 +63,13 @@ class ProductDialog(ctk.CTkToplevel):
         ctk.CTkLabel(self, text=f"Price ({CURRENCY_SYMBOL}):").grid(row=row, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="e")
         self.price_entry = ctk.CTkEntry(self)
         self.price_entry.grid(row=row, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
+        
+        # Cost Price
+        row += 1
+        ctk.CTkLabel(self, text="Cost Price:").grid(row=row, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="e")
+        self.cost_price_entry = ctk.CTkEntry(self)
+        self.cost_price_entry.insert(0, "0.0")
+        self.cost_price_entry.grid(row=row, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
         
         # Stock
         row += 1
@@ -143,16 +152,19 @@ class ProductDialog(ctk.CTkToplevel):
                 "category": self.category_var.get(),
                 "barcode": self.barcode_entry.get().strip(),
                 "price": float(self.price_entry.get()),
-                "stock": int(self.stock_entry.get()),
-                "low_stock_threshold": int(self.threshold_entry.get())
+                "stock_quantity": int(self.stock_entry.get()),
+                "cost_price": float(self.cost_price_entry.get()),
+                "reorder_level": int(self.threshold_entry.get()),
+                "image_path": ""
             }
             
             # If editing, preserve the ID
             if self.product:
                 self.result["id"] = self.product["id"]
             
+            print("[DEBUG] ProductDialog save called, result will be:", self.result)
             self.destroy()
     
     def cancel(self):
         """Cancel the dialog"""
-        self.destroy() 
+        self.destroy()

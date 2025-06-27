@@ -6,7 +6,7 @@ from decimal import Decimal
 from config.constants import (
     PADDING_SMALL, PADDING_MEDIUM, PADDING_LARGE,
     CATEGORIES, PAYMENT_METHODS, PAYMENT_CASH, PAYMENT_CARD, PAYMENT_MOBILE, TAX_RATE,
-    SCREEN_DASHBOARD
+    SCREEN_DASHBOARD, CURRENCY_SYMBOL
 )
 from ui.base.base_frame import BaseFrame
 from ui.base.scrollable_frame import ScrollableFrame
@@ -275,7 +275,7 @@ class POSScreen(BaseFrame):
             font=ctk.CTkFont(weight="bold"),
             anchor="e"
         )
-        self.total_value.grid(row=4, column=1, sticky="e", padx=PADDING_SMALL, pady=PADDING_SMALL)
+        self.total_value.grid(row=4, column=1, sticky="e", padx=PADDING_SMALL, pady=PADDING_MEDIUM)
         
         # Payment options
         payment_frame = ctk.CTkFrame(cart_frame)
@@ -395,27 +395,27 @@ class POSScreen(BaseFrame):
         """Create a product card widget"""
         card = ctk.CTkFrame(parent)
         card.grid_columnconfigure(0, weight=1)
-        
-        # Set minimum width for consistent card size
         card.configure(width=200, height=200)
-        
+
         # Product name
         name_label = ctk.CTkLabel(
             card, 
             text=product['name'], 
             font=ctk.CTkFont(size=14, weight="bold"),
-            wraplength=180  # Slightly less than card width
+            wraplength=180
         )
         name_label.grid(row=0, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
-        
+
         # Product price
         price_label = ctk.CTkLabel(
-            card, 
-            text=f"${product['price']:.2f}", 
-            font=ctk.CTkFont(size=12)
+            card,
+            text=f"{CURRENCY_SYMBOL}{product['price']:.2f}",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=("#00adb5", "#00adb5"),
+            anchor="e"
         )
         price_label.grid(row=1, column=0, padx=PADDING_SMALL, pady=(0, PADDING_SMALL), sticky="ew")
-        
+
         # Product category
         category_label = ctk.CTkLabel(
             card, 
@@ -604,11 +604,11 @@ class POSScreen(BaseFrame):
             plus_button.grid(row=0, column=2)
             
             # Price
-            price_label = ctk.CTkLabel(item_frame, text=f"${item['price']:.2f}")
+            price_label = ctk.CTkLabel(item_frame, text=f"{CURRENCY_SYMBOL}{item['price']:.2f}")
             price_label.grid(row=0, column=2, sticky="e")
             
             # Subtotal
-            subtotal_label = ctk.CTkLabel(item_frame, text=f"${item['subtotal']:.2f}")
+            subtotal_label = ctk.CTkLabel(item_frame, text=f"{CURRENCY_SYMBOL}{item['subtotal']:.2f}")
             subtotal_label.grid(row=0, column=3, sticky="e")
             
             # Remove button
@@ -630,7 +630,7 @@ class POSScreen(BaseFrame):
         """Update the cart summary"""
         # Calculate subtotal
         subtotal = sum(item['subtotal'] for item in self.cart_items)
-        self.subtotal_value.configure(text=f"${subtotal:.2f}")
+        self.subtotal_value.configure(text=f"{CURRENCY_SYMBOL}{subtotal:.2f}")
         
         # Get discount
         try:
@@ -648,7 +648,7 @@ class POSScreen(BaseFrame):
         
         # Calculate total
         total = subtotal - discount + tax
-        self.total_value.configure(text=f"${total:.2f}")
+        self.total_value.configure(text=f"{CURRENCY_SYMBOL}{total:.2f}")
     
     def increase_quantity(self, index: int):
         """Increase item quantity"""
@@ -804,3 +804,7 @@ class POSScreen(BaseFrame):
         dialog = ctk.CTkToplevel(self)
         dialog.title(title)
         dialog.geometry("300x200")
+
+    def on_screen_shown(self):
+        """Called when POS screen is shown or needs refresh"""
+        self.load_products()

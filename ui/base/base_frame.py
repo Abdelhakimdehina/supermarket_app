@@ -77,3 +77,66 @@ class BaseFrame(ctk.CTkFrame):
             command=dialog.destroy
         )
         ok_button.pack(pady=10)
+    
+    def show_confirmation(self, title: str, message: str) -> bool:
+        """Show a confirmation dialog and return True if user confirms"""
+        result = [False]  # Use list to store result for closure
+        
+        dialog = ctk.CTkToplevel(self)
+        dialog.title(title)
+        dialog.geometry("350x200")
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        
+        # Center the dialog
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() - dialog.winfo_width()) // 2
+        y = (dialog.winfo_screenheight() - dialog.winfo_height()) // 2
+        dialog.geometry(f"+{x}+{y}")
+        
+        # Message
+        message_label = ctk.CTkLabel(
+            dialog,
+            text=message,
+            wraplength=300
+        )
+        message_label.pack(pady=20)
+        
+        # Buttons frame
+        button_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        button_frame.pack(pady=10)
+        
+        def confirm():
+            result[0] = True
+            dialog.destroy()
+        
+        def cancel():
+            result[0] = False
+            dialog.destroy()
+        
+        # Yes button
+        yes_button = ctk.CTkButton(
+            button_frame,
+            text="Yes",
+            command=confirm,
+            fg_color="#e74c3c",
+            hover_color="#c0392b",
+            width=80
+        )
+        yes_button.pack(side="left", padx=10)
+        
+        # No button
+        no_button = ctk.CTkButton(
+            button_frame,
+            text="No",
+            command=cancel,
+            fg_color="#95a5a6",
+            hover_color="#7f8c8d",
+            width=80
+        )
+        no_button.pack(side="left", padx=10)
+        
+        # Wait for dialog to close
+        dialog.wait_window()
+        
+        return result[0]

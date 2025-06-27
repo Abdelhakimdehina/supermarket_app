@@ -36,7 +36,7 @@ CATEGORIES = [
     "Dairy",
     "Dry/Baking Goods",
     "Frozen Foods",
-    "Meat",
+    "Meat & Poultry",
     "Produce",
     "Cleaners",
     "Paper Goods",
@@ -71,7 +71,7 @@ DATE_FORMAT = "%Y-%m-%d"
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # Currency symbol
-CURRENCY_SYMBOL = "$"
+CURRENCY_SYMBOL = "DA"
 
 # Status constants
 STATUS_ACTIVE = "active"

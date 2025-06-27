@@ -86,6 +86,24 @@ class DBManager:
                 sample_products
             )
         
+        # Inventory transactions table
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS inventory_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            quantity_change INTEGER NOT NULL,
+            previous_quantity INTEGER NOT NULL,
+            new_quantity INTEGER NOT NULL,
+            transaction_type TEXT NOT NULL,
+            reason TEXT,
+            notes TEXT,
+            user_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES products (id),
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        ''')
+        
         # Customers table
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS customers (
