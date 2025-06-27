@@ -463,8 +463,8 @@ class InventoryScreen(BaseFrame):
         """Show dialog to edit selected product"""
         if not self.selected_product:
             return
-        
         dialog = ProductDialog(self, self.selected_product)
+        self.wait_window(dialog)
         if dialog.result:
             try:
                 self.inventory_service.update_product(dialog.result)

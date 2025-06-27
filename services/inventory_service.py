@@ -28,8 +28,7 @@ class InventoryService:
                 WHERE is_active = 1
                 ORDER BY name
             """)
-            
-            return [{
+            products = [{
                 "id": row[0],
                 "name": row[1],
                 "description": row[2],
@@ -47,6 +46,8 @@ class InventoryService:
                 "updated_at": row[12],
                 "last_updated": row[12]  # Alias for backward compatibility
             } for row in cursor.fetchall()]
+            print("[DEBUG] get_all_products loaded:", products)
+            return products
     
     def search_products(self, search_term: str) -> List[Dict[str, Any]]:
         """Search products by name, description, or barcode"""
@@ -108,7 +109,6 @@ class InventoryService:
     
     def add_product(self, product_data: Dict[str, Any]) -> bool:
         """Add a new product"""
-        print("[DEBUG] InventoryService.add_product called with:", product_data)
         with self.get_connection() as conn:
             cursor = conn.cursor()
             try:
@@ -130,15 +130,12 @@ class InventoryService:
                     product_data.get('image_path', '')
                 ))
                 conn.commit()
-                print("[DEBUG] Product insert successful.")
                 return True
             except sqlite3.Error as e:
-                print(f"[DEBUG] Database error in add_product: {e}")
                 return False
-    
+
     def update_product(self, product_data: Dict[str, Any]) -> bool:
-        """Update an existing product"""
-        print("[DEBUG] update_product called with:", product_data)
+        """Update an existing product with correct field mapping"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             try:
@@ -155,16 +152,14 @@ class InventoryService:
                     product_data.get('barcode', ''),
                     product_data.get('price', 0.0),
                     product_data.get('cost_price', 0.0),
-                    product_data.get('stock_quantity', 0),
+                    product_data.get('stock_quantity', product_data.get('stock', 0)),
                     product_data.get('reorder_level', 10),
                     product_data.get('image_path', ''),
                     product_data['id']
                 ))
-                print("[DEBUG] SQL UPDATE executed for id:", product_data['id'], "new price:", product_data.get('price', 0.0))
                 conn.commit()
-                return True
+                return cursor.rowcount > 0
             except Exception as e:
-                print(f"Database error: {e}")
                 return False
     
     def delete_product(self, product_id: int) -> bool:

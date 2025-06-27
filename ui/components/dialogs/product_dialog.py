@@ -162,7 +162,6 @@ class ProductDialog(ctk.CTkToplevel):
             if self.product:
                 self.result["id"] = self.product["id"]
             
-            print("[DEBUG] ProductDialog save called, result will be:", self.result)
             self.destroy()
     
     def cancel(self):
