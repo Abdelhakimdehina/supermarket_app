@@ -345,6 +345,42 @@ class POSScreen(BaseFrame):
             width=120
         )
         checkout_button.grid(row=0, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
+        
+        # Add Print Ticket button
+        print_ticket_button = ctk.CTkButton(
+            action_frame,
+            text="Print Ticket",
+            command=self.on_print_ticket,
+            fg_color="#f39c12",
+            hover_color="#e67e22",
+            width=120
+        )
+        print_ticket_button.grid(row=1, column=0, columnspan=2, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
+
+    def on_print_ticket(self):
+        """Handler for Print Ticket button. Prints a sample or last sale ticket."""
+        # Example: print the current cart as a ticket (customize as needed)
+        if not self.cart_items:
+            print("Cart is empty. Nothing to print.")
+            return
+        # Build a sale dict using the correct keys from cart_items
+        from datetime import datetime
+        sale = {
+            'sale_id': 'N/A',
+            'datetime': datetime.now().strftime('%Y-%m-%d %H:%M'),
+            'cashier': 'Current User',
+            'items': [
+                {
+                    'name': item['product']['name'],
+                    'quantity': item['quantity'],
+                    'price': item['product']['price']
+                } for item in self.cart_items
+            ],
+            'total': sum(item['quantity'] * item['product']['price'] for item in self.cart_items),
+            'payment': sum(item['quantity'] * item['product']['price'] for item in self.cart_items),
+            'change': 0.0
+        }
+        self.print_ticket(sale)
     
     def load_products(self, category: Optional[str] = None):
         """Load products into the product list"""
@@ -714,11 +750,26 @@ class POSScreen(BaseFrame):
         if not self.cart_items:
             self.show_message("Empty Cart", "Cannot hold an empty sale.")
             return
-        
-        # In a real application, this would save the sale as a draft
-        # For now, we'll just show a message
+        # For demonstration, print the ticket for the current cart
+        from datetime import datetime
+        sale = {
+            'sale_id': 'HOLD',
+            'datetime': datetime.now().strftime('%Y-%m-%d %H:%M'),
+            'cashier': 'Current User',
+            'items': [
+                {
+                    'name': item['product']['name'],
+                    'quantity': item['quantity'],
+                    'price': item['product']['price']
+                } for item in self.cart_items
+            ],
+            'total': sum(item['quantity'] * item['product']['price'] for item in self.cart_items),
+            'payment': 0.0,
+            'change': 0.0
+        }
+        self.print_ticket(sale)
         self.show_message("Not Implemented", "Hold sale functionality is not implemented yet.")
-    
+
     def checkout(self):
         """Process checkout"""
         try:
@@ -742,20 +793,38 @@ class POSScreen(BaseFrame):
                         "product_id": item["product"]["id"],
                         "quantity": item["quantity"],
                         "price": item["product"]["price"],
-                        "discount_percent": 0.0  # No item-level discounts for now
+                        "discount_percent": 0.0
                     }
                     for item in self.cart_items
                 ],
-                "payment_method": PAYMENT_CASH,  # Default to cash for now
+                "payment_method": PAYMENT_CASH,
                 "total": total,
                 "tax": tax,
-                "discount": 0.0  # No sale-level discounts for now
+                "discount": 0.0
             }
             
             # Create sale
             sale = self.sale_service.create_sale(sale_data)
             if not sale:
                 raise Exception("Failed to create sale")
+            
+            # Print ticket using correct keys
+            ticket = {
+                'sale_id': sale.get('invoice_number', sale.get('id', 'N/A')),
+                'datetime': sale.get('sale_date', ''),
+                'cashier': current_user.get('username', 'N/A'),
+                'items': [
+                    {
+                        'name': item['product_name'],
+                        'quantity': item['quantity'],
+                        'price': item['price']
+                    } for item in sale['items']
+                ],
+                'total': sale['total'],
+                'payment': sale['total'],
+                'change': 0.0
+            }
+            self.print_ticket(ticket)
             
             # Show success message
             self.show_success_message()
@@ -765,9 +834,36 @@ class POSScreen(BaseFrame):
             
             # Reload products to update stock
             self.load_products()
-            
         except Exception as e:
             self.show_message("Error", str(e))
+    
+    def print_ticket(self, sale):
+        """
+        Print a formatted sales ticket to the console.
+        :param sale: dict with keys 'items' (list of dicts), 'total', 'payment', 'change', 'datetime', 'cashier', 'sale_id'
+        """
+        print("\n" + "="*38)
+        print("         SUPERMARKET RECEIPT")
+        print("="*38)
+        print(f"Sale ID: {sale.get('sale_id', 'N/A')}")
+        print(f"Date: {sale.get('datetime', '')}")
+        print(f"Cashier: {sale.get('cashier', 'N/A')}")
+        print("-"*38)
+        print(f"{'Item':16} {'Qty':>3} {'Price':>7} {'Total':>8}")
+        print("-"*38)
+        for item in sale['items']:
+            name = item['name'][:16]
+            qty = item['quantity']
+            price = item['price']
+            total = qty * price
+            print(f"{name:16} {qty:>3} {price:>7.2f} {total:>8.2f}")
+        print("-"*38)
+        print(f"{'TOTAL':>28}: {sale['total']:>8.2f} DA")
+        print(f"{'PAYMENT':>28}: {sale['payment']:>8.2f} DA")
+        print(f"{'CHANGE':>28}: {sale['change']:>8.2f} DA")
+        print("="*38)
+        print("  Thank you for shopping with us!  ")
+        print("="*38 + "\n")
     
     def show_success_message(self):
         """Show checkout success message"""
@@ -808,3 +904,10 @@ class POSScreen(BaseFrame):
     def on_screen_shown(self):
         """Called when POS screen is shown or needs refresh"""
         self.load_products()
+
+    def print_cart(self):
+        """Prints the current cart items to the console for debugging."""
+        print("--- Current Cart ---")
+        for item in self.cart_items:
+            print(f"{item['name']} x{item['quantity']} @ {item['price']} each")
+        print("--------------------")

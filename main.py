@@ -16,5 +16,7 @@ ctk.set_window_scaling(1.0)  # window dimensions
 # Create application instance
 app = SupermarketApp()
 
+
+
 if __name__ == "__main__":
     app.mainloop()
