@@ -2,15 +2,18 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 import sqlite3
 
-from database.db_manager import DBManager
+from config.settings import DATABASE_PATH
 
 class ReportsService:
     """Service for generating various reports"""
     
+    def get_connection(self):
+        return sqlite3.connect(DATABASE_PATH)
+
     def get_sales_summary(self, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
         """Get sales summary for the given period"""
-        db = DBManager()
-        try:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
             # Default to current month if no dates provided
             if not start_date:
                 today = datetime.now()
@@ -19,7 +22,7 @@ class ReportsService:
                 end_date = datetime.now().strftime('%Y-%m-%d 23:59:59')
             
             # Get sales summary
-            result = db.execute_query("""
+            cursor.execute("""
                 SELECT 
                     COALESCE(COUNT(*), 0) as total_sales,
                     COALESCE(SUM(total_amount), 0) as total_revenue,
@@ -31,17 +34,20 @@ class ReportsService:
                 WHERE sale_date BETWEEN ? AND ?
             """, (start_date, end_date))
             
-            summary = result[0] if result else {
-                'total_sales': 0,
-                'total_revenue': 0,
-                'total_discounts': 0,
-                'total_tax': 0,
-                'average_sale': 0,
-                'unique_customers': 0
+            result = cursor.fetchall()
+            summary_row = result[0] if result else [0, 0, 0, 0, 0, 0]
+
+            summary = {
+                'total_sales': summary_row[0],
+                'total_revenue': summary_row[1],
+                'total_discounts': summary_row[2],
+                'total_tax': summary_row[3],
+                'average_sale': summary_row[4],
+                'unique_customers': summary_row[5]
             }
             
             # Get payment method breakdown
-            payment_methods = db.execute_query("""
+            cursor.execute("""
                 SELECT 
                     payment_method,
                     COUNT(*) as count,
@@ -51,8 +57,10 @@ class ReportsService:
                 GROUP BY payment_method
             """, (start_date, end_date))
             
+            payment_methods = cursor.fetchall()
+
             # Get hourly sales distribution
-            hourly_sales = db.execute_query("""
+            cursor.execute("""
                 SELECT 
                     strftime('%H', sale_date) as hour,
                     COUNT(*) as count,
@@ -63,18 +71,18 @@ class ReportsService:
                 ORDER BY hour
             """, (start_date, end_date))
             
-            return {
-                'summary': summary,
-                'payment_methods': payment_methods,
-                'hourly_sales': hourly_sales
-            }
-        finally:
-            db.close()
+            hourly_sales = cursor.fetchall()
+
+        return {
+            'summary': summary,
+            'payment_methods': payment_methods,
+            'hourly_sales': hourly_sales
+        }
     
     def get_top_products(self, limit: int = 10, start_date: str = None, end_date: str = None) -> List[Dict]:
         """Get top selling products"""
-        db = DBManager()
-        try:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
             # Default to current month
             if not start_date:
                 today = datetime.now()
@@ -82,7 +90,7 @@ class ReportsService:
             if not end_date:
                 end_date = datetime.now().strftime('%Y-%m-%d 23:59:59')
             
-            return db.execute_query("""
+            cursor.execute("""
                 SELECT 
                     p.id,
                     p.name,
@@ -98,15 +106,14 @@ class ReportsService:
                 ORDER BY total_quantity DESC
                 LIMIT ?
             """, (start_date, end_date, limit))
-        finally:
-            db.close()
+            return cursor.fetchall()
     
     def get_inventory_status(self) -> Dict[str, Any]:
         """Get inventory status report"""
-        db = DBManager()
-        try:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
             # Get low stock items
-            low_stock = db.execute_query("""
+            cursor.execute("""
                 SELECT 
                     id, name, category, stock_quantity, reorder_level,
                     price, cost_price
@@ -114,9 +121,10 @@ class ReportsService:
                 WHERE stock_quantity <= reorder_level
                 ORDER BY (stock_quantity * 1.0 / reorder_level)
             """)
+            low_stock = cursor.fetchall()
             
             # Get category summary
-            categories = db.execute_query("""
+            cursor.execute("""
                 SELECT 
                     category,
                     COUNT(*) as total_products,
@@ -125,29 +133,34 @@ class ReportsService:
                 FROM products
                 GROUP BY category
             """)
+            categories = cursor.fetchall()
             
             # Get overall summary
-            summary = db.execute_query("""
+            cursor.execute("""
                 SELECT 
                     COUNT(*) as total_products,
                     SUM(stock_quantity) as total_stock,
                     SUM(stock_quantity * price) as total_stock_value,
                     COUNT(CASE WHEN stock_quantity <= reorder_level THEN 1 END) as low_stock_count
                 FROM products
-            """)[0]
-            
+            """)
+            summary = cursor.fetchone()
+
             return {
                 'low_stock': low_stock,
                 'categories': categories,
-                'summary': summary
+                'summary': {
+                    'total_products': summary[0],
+                    'total_stock': summary[1],
+                    'total_stock_value': summary[2],
+                    'low_stock_count': summary[3]
+                }
             }
-        finally:
-            db.close()
     
     def get_customer_analytics(self, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
         """Get customer analytics"""
-        db = DBManager()
-        try:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
             # Default to current month
             if not start_date:
                 today = datetime.now()
@@ -156,7 +169,7 @@ class ReportsService:
                 end_date = datetime.now().strftime('%Y-%m-%d 23:59:59')
             
             # Get top customers
-            top_customers = db.execute_query("""
+            cursor.execute("""
                 SELECT 
                     c.id,
                     c.name,
@@ -172,9 +185,10 @@ class ReportsService:
                 ORDER BY total_spent DESC
                 LIMIT 10
             """, (start_date, end_date))
+            top_customers = cursor.fetchall()
             
             # Get customer segments
-            segments = db.execute_query("""
+            cursor.execute("""
                 WITH customer_stats AS (
                     SELECT 
                         c.id,
@@ -199,25 +213,34 @@ class ReportsService:
                 FROM customer_stats
                 GROUP BY segment
             """, (start_date, end_date))
+            segments = cursor.fetchall()
             
             # Get overall summary
-            summary = db.execute_query("""
+            cursor.execute("""
                 SELECT 
                     COUNT(DISTINCT customer_id) as active_customers,
                     COUNT(DISTINCT CASE WHEN customer_id IS NULL THEN s.id END) as guest_transactions,
                     AVG(total_amount) as average_transaction,
-                    SUM(total_amount) / COUNT(DISTINCT customer_id) as revenue_per_customer
+                    CASE 
+                        WHEN COUNT(DISTINCT customer_id) > 0 THEN SUM(total_amount) / COUNT(DISTINCT customer_id)
+                        ELSE 0 
+                    END as revenue_per_customer
                 FROM sales s
                 WHERE sale_date BETWEEN ? AND ?
-            """, (start_date, end_date))[0]
-            
+            """, (start_date, end_date))
+            summary_row = cursor.fetchone()
+            summary = {
+                'active_customers': summary_row[0],
+                'guest_transactions': summary_row[1],
+                'average_transaction': summary_row[2],
+                'revenue_per_customer': summary_row[3]
+            }
+
             return {
                 'top_customers': top_customers,
                 'segments': segments,
                 'summary': summary
             }
-        finally:
-            db.close()
     
     def get_daily_report(self, date: str = None) -> Dict[str, Any]:
         """Get comprehensive daily report"""

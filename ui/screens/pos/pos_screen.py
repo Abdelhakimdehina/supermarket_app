@@ -2,6 +2,8 @@ import customtkinter as ctk
 from typing import Dict, Any, Optional, List
 import datetime
 from decimal import Decimal
+import os
+from PIL import Image
 
 from config.constants import (
     PADDING_SMALL, PADDING_MEDIUM, PADDING_LARGE,
@@ -13,7 +15,9 @@ from ui.base.scrollable_frame import ScrollableFrame
 from services.auth_service import AuthService
 from services.product_service import ProductService
 from services.sale_service import SaleService
+from utils.session import SessionManager
 from ui.components.dialogs.customer_selector_dialog import CustomerSelectorDialog
+from ui.components.dialogs.recall_sale_dialog import RecallSaleDialog
 
 class POSScreen(BaseFrame):
     """Point of Sale screen for the application"""
@@ -23,18 +27,56 @@ class POSScreen(BaseFrame):
         self.auth_service = AuthService()
         self.product_service = ProductService()
         self.sale_service = SaleService()
+        self.session_manager = SessionManager()
 
         super().__init__(master, **kwargs)
+
+        # Initialize payment_icons dictionary first
+        self.payment_icons = {}
         
         # Current cart items
         self.cart_items: List[Dict[str, Any]] = []
+        self.held_sales: List[Dict[str, Any]] = []
         
         # Selected customer
         self.selected_customer = None
         
         # Set background color
         self.configure(fg_color=("#f0f0f0", "#2c3e50"))
+        
+        # Load payment icons after everything else is initialized
+        try:
+            self.load_payment_icons()
+        except Exception as e:
+            print(f"Error loading payment icons: {e}")
+            # Ensure payment_icons is still a valid dictionary even if loading fails
+            self.payment_icons = {}
     
+    def load_payment_icons(self):
+        """Load payment icons from the assets folder."""
+        # Correctly determine the path to the assets directory from pos_screen.py
+        # __file__ -> pos_screen.py
+        # os.path.dirname(__file__) -> .../ui/screens/pos
+        # The assets folder is at .../assets
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        icon_path = os.path.join(base_path, "assets", "icons")
+
+        icon_files = {
+            PAYMENT_CASH: "cash.png",
+            PAYMENT_CARD: "card.png",
+            PAYMENT_MOBILE: "mobile.png"
+        }
+        for payment_method, filename in icon_files.items():
+            try:
+                full_path = os.path.join(icon_path, filename)
+                if os.path.exists(full_path):
+                    image = Image.open(full_path)
+                    self.payment_icons[payment_method] = ctk.CTkImage(light_image=image, dark_image=image, size=(24, 24))
+                else:
+                    print(f"Icon not found: {full_path}")
+            except Exception as e:
+                print(f"Error loading icon {filename}: {e}")
+
     def init_ui(self):
         """Initialize UI components"""
         # Create main container with 2 columns
@@ -64,17 +106,21 @@ class POSScreen(BaseFrame):
         header_frame = ctk.CTkFrame(product_frame, fg_color="transparent")
         header_frame.grid(row=0, column=0, sticky="ew", padx=PADDING_MEDIUM, pady=PADDING_MEDIUM)
         header_frame.grid_columnconfigure(1, weight=1)  # Make title expand
+
+        # Conditionally add the return to dashboard button for admins
+        current_user = self.session_manager.get_user()
+        if current_user and current_user.get('role') == 'admin':
+            return_button = ctk.CTkButton(
+                header_frame,
+                text="← Return to Dashboard",
+                command=lambda: self.navigate_to(SCREEN_DASHBOARD),
+                width=150,
+                fg_color="#2980b9",
+                hover_color="#3498db"
+            )
+            return_button.grid(row=0, column=0, padx=PADDING_SMALL)
         
-        # Return button
-        return_button = ctk.CTkButton(
-            header_frame,
-            text="← Return to Dashboard",
-            command=lambda: self.navigate_to(SCREEN_DASHBOARD),
-            width=150,
-            fg_color="#2980b9",
-            hover_color="#3498db"
-        )
-        return_button.grid(row=0, column=0, padx=PADDING_SMALL)
+
         
         # Title
         title_label = ctk.CTkLabel(
@@ -280,71 +326,69 @@ class POSScreen(BaseFrame):
         # Payment options
         payment_frame = ctk.CTkFrame(cart_frame)
         payment_frame.grid(row=3, column=0, sticky="ew", padx=PADDING_MEDIUM, pady=(0, PADDING_MEDIUM))
-        payment_frame.grid_columnconfigure(0, weight=1)
-        
+        payment_frame.grid_columnconfigure(1, weight=1)
+
         payment_label = ctk.CTkLabel(
-            payment_frame, 
-            text="Payment Method:", 
+            payment_frame,
+            text="Payment Method:",
             font=ctk.CTkFont(weight="bold")
         )
         payment_label.grid(row=0, column=0, sticky="w", padx=PADDING_SMALL, pady=PADDING_SMALL)
-        
+
         # Payment method radio buttons
-        self.payment_method = ctk.StringVar(value=PAYMENT_CASH)
-        
+        self.payment_method_var = ctk.StringVar(value=PAYMENT_CASH)
         payment_options_frame = ctk.CTkFrame(payment_frame, fg_color="transparent")
-        payment_options_frame.grid(row=1, column=0, sticky="ew", padx=PADDING_SMALL, pady=PADDING_SMALL)
+        payment_options_frame.grid(row=0, column=1, sticky="ew", padx=(PADDING_LARGE, 0))
         payment_options_frame.grid_columnconfigure((0, 1, 2), weight=1)
-        
-        cash_radio = ctk.CTkRadioButton(
-            payment_options_frame, 
-            text="Cash", 
-            variable=self.payment_method, 
-            value=PAYMENT_CASH
-        )
-        cash_radio.grid(row=0, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL)
-        
-        card_radio = ctk.CTkRadioButton(
-            payment_options_frame, 
-            text="Card", 
-            variable=self.payment_method, 
-            value=PAYMENT_CARD
-        )
-        card_radio.grid(row=0, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL)
-        
-        mobile_radio = ctk.CTkRadioButton(
-            payment_options_frame, 
-            text="Mobile", 
-            variable=self.payment_method, 
-            value=PAYMENT_MOBILE
-        )
-        mobile_radio.grid(row=0, column=2, padx=PADDING_SMALL, pady=PADDING_SMALL)
+
+        for i, method in enumerate(PAYMENT_METHODS):
+            # Safely get icon, handle case where payment_icons might not be initialized yet
+            icon = getattr(self, 'payment_icons', {}).get(method)
+            rb = ctk.CTkRadioButton(
+                payment_options_frame,
+                text=method,
+                variable=self.payment_method_var,
+                value=method
+            )
+            # Only add image if it exists and is valid
+            if icon is not None:
+                try:
+                    rb.configure(image=icon, compound="left")
+                except Exception as e:
+                    print(f"Error setting icon for {method}: {e}")
+            rb.grid(row=0, column=i, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="w")
         
         # Action buttons
         action_frame = ctk.CTkFrame(cart_frame)
         action_frame.grid(row=4, column=0, sticky="ew", padx=PADDING_MEDIUM, pady=(0, PADDING_MEDIUM))
-        action_frame.grid_columnconfigure(0, weight=1)
-        action_frame.grid_columnconfigure(1, weight=1)
-        
+        action_frame.grid_columnconfigure((0, 1, 2), weight=1)
+
         hold_button = ctk.CTkButton(
-            action_frame, 
+            action_frame,
             text="Hold Sale",
             command=self.hold_sale,
-            fg_color="#3498db",
-            hover_color="#2980b9",
-            width=120
+            fg_color="#e67e22",
+            hover_color="#d35400"
         )
         hold_button.grid(row=0, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
-        
+
+        recall_button = ctk.CTkButton(
+            action_frame,
+            text="Recall Sale",
+            command=self.recall_sale,
+            fg_color="#3498db",
+            hover_color="#2980b9"
+        )
+        recall_button.grid(row=0, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
+
         checkout_button = ctk.CTkButton(
-            action_frame, 
+            action_frame,
             text="Checkout",
             command=self.checkout,
             fg_color="#2ecc71",
-            hover_color="#27ae60",
-            width=120
+            hover_color="#27ae60"
         )
-        checkout_button.grid(row=0, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
+        checkout_button.grid(row=0, column=2, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
         
         # Add Print Ticket button
         print_ticket_button = ctk.CTkButton(
@@ -745,30 +789,50 @@ class POSScreen(BaseFrame):
         
         CustomerSelectorDialog(self, on_customer_selected)
     
+    def recall_sale(self):
+        """Recall a held sale"""
+        if not self.held_sales:
+            self.show_message("No Held Sales", "There are no sales currently on hold.")
+            return
+
+        dialog = RecallSaleDialog(self, self.held_sales, on_recall=self.on_sale_recalled, on_delete=self.on_sale_deleted)
+        dialog.mainloop()
+
+    def on_sale_recalled(self, index: int):
+        """Callback function when a sale is recalled from the dialog."""
+        if 0 <= index < len(self.held_sales):
+            if self.cart_items:
+                self.show_message("Cart Not Empty", "Please clear or complete the current sale before recalling another.")
+                return
+
+            recalled_sale = self.held_sales.pop(index)
+            self.cart_items = recalled_sale["items"]
+            self.selected_customer = recalled_sale["customer"]
+
+            self.update_cart_display()
+            self.update_cart_summary()
+            self.show_message("Success", "Sale has been successfully recalled.")
+
+    def on_sale_deleted(self, index: int):
+        """Callback function when a sale is deleted from the dialog."""
+        if 0 <= index < len(self.held_sales):
+            self.held_sales.pop(index)
+            self.show_message("Success", "Held sale has been deleted.")
+
     def hold_sale(self):
         """Hold the current sale for later"""
         if not self.cart_items:
             self.show_message("Empty Cart", "Cannot hold an empty sale.")
             return
-        # For demonstration, print the ticket for the current cart
-        from datetime import datetime
-        sale = {
-            'sale_id': 'HOLD',
-            'datetime': datetime.now().strftime('%Y-%m-%d %H:%M'),
-            'cashier': 'Current User',
-            'items': [
-                {
-                    'name': item['product']['name'],
-                    'quantity': item['quantity'],
-                    'price': item['product']['price']
-                } for item in self.cart_items
-            ],
-            'total': sum(item['quantity'] * item['product']['price'] for item in self.cart_items),
-            'payment': 0.0,
-            'change': 0.0
+
+        held_sale = {
+            "items": self.cart_items,
+            "customer": self.selected_customer,
+            "hold_time": datetime.datetime.now()
         }
-        self.print_ticket(sale)
-        self.show_message("Not Implemented", "Hold sale functionality is not implemented yet.")
+        self.held_sales.append(held_sale)
+        self.clear_cart()
+        self.show_message("Success", f"Sale held successfully. There are now {len(self.held_sales)} held sales.")
 
     def checkout(self):
         """Process checkout"""

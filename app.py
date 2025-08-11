@@ -6,7 +6,7 @@ import os
 from config.constants import (
     SCREEN_LOGIN, SCREEN_DASHBOARD, SCREEN_POS,
     SCREEN_INVENTORY, SCREEN_CUSTOMERS, SCREEN_SETTINGS,
-    SCREEN_REPORTS,
+    SCREEN_REPORTS, SCREEN_CASHIER_MAIN,
     SCREEN_MIN_WIDTH, SCREEN_MIN_HEIGHT
 )
 from ui.base.base_frame import BaseFrame
@@ -17,6 +17,7 @@ from ui.screens.inventory.inventory_screen import InventoryScreen
 from ui.screens.customers.customers_screen import CustomersScreen
 from ui.screens.settings.settings_screen import SettingsScreen
 from ui.screens.reports.reports_screen import ReportsScreen
+from ui.screens.cashier.cashier_main_screen import CashierMainScreen
 
 class SupermarketApp(ctk.CTk):
     """Main application class"""
@@ -48,6 +49,7 @@ class SupermarketApp(ctk.CTk):
         self.register_screen(SCREEN_CUSTOMERS, CustomersScreen)
         self.register_screen(SCREEN_SETTINGS, SettingsScreen)
         self.register_screen(SCREEN_REPORTS, ReportsScreen)
+        self.register_screen(SCREEN_CASHIER_MAIN, CashierMainScreen)
         
         # Show initial screen
         self.show_screen(SCREEN_LOGIN)

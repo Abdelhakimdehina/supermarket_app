@@ -128,8 +128,8 @@ class AuthService:
             
             cursor.execute("""
                 INSERT INTO users (
-                    username, password_hash, full_name, email, role,
-                    is_active, created_at, updated_at
+                    username, password, full_name, email, role,
+                    is_active, created_at, last_login
                 ) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
             """, (
                 user_data['username'],
@@ -166,7 +166,7 @@ class AuthService:
             
             # Add password if provided
             if 'password' in user_data:
-                fields.append('password_hash')
+                fields.append('password')
                 values.append(generate_password_hash(user_data['password']))
             
             # Build update query

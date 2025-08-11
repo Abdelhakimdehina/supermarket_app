@@ -7,6 +7,7 @@ SCREEN_POS = "pos"
 SCREEN_INVENTORY = "inventory"
 SCREEN_CUSTOMERS = "customers"
 SCREEN_REPORTS = "reports"
+SCREEN_CASHIER_MAIN = "cashier_main"
 SCREEN_SETTINGS = "settings"
 SCREEN_USER_MANAGEMENT = "user_management"
 

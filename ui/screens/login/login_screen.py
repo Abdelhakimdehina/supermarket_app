@@ -5,7 +5,7 @@ from typing import Optional, Tuple, Dict, Any
 from tkinter import messagebox
 
 from config.settings import LOGO_PATH, APP_NAME
-from config.constants import PADDING_SMALL, PADDING_MEDIUM, PADDING_LARGE, SCREEN_DASHBOARD, ROLES
+from config.constants import PADDING_SMALL, PADDING_MEDIUM, PADDING_LARGE, SCREEN_DASHBOARD, SCREEN_CASHIER_MAIN, ROLES
 from ui.base.base_frame import BaseFrame
 from services.auth_service import AuthService
 from utils.session import SessionManager
@@ -159,8 +159,14 @@ class LoginScreen(BaseFrame):
             # Save session if remember me is checked
             self.session_manager.set_user(user, remember=self.remember_var.get())
             
-            # Navigate to dashboard
-            self.navigate_to(SCREEN_DASHBOARD, {"user": user})
+            # Navigate based on role
+            if user.get('role') == 'admin':
+                self.navigate_to(SCREEN_DASHBOARD, {"user": user})
+            elif user.get('role') == 'cashier':
+                self.navigate_to(SCREEN_CASHIER_MAIN, {"user": user})
+            else:
+                # Default navigation or error
+                messagebox.showerror("Login Error", "Invalid user role.")
         else:
             self.error_label.configure(text="Invalid username or password")
     
@@ -320,5 +326,12 @@ class LoginScreen(BaseFrame):
         # Get current user from session
         user = self.session_manager.get_user()
         if user:
-            # User is already logged in, navigate to dashboard
-            self.navigate_to(SCREEN_DASHBOARD, {"user": user})
+            # User is already logged in, navigate based on role
+            role = user.get('role')
+            if role == 'admin':
+                self.navigate_to(SCREEN_DASHBOARD, {"user": user})
+            elif role == 'cashier':
+                self.navigate_to(SCREEN_CASHIER_MAIN, {"user": user})
+            else:
+                # Invalid role in session, clear it
+                self.session_manager.clear_session()

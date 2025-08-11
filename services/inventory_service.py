@@ -21,12 +21,15 @@ class InventoryService:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT 
-                    id, name, description, category, barcode,
-                    price, cost_price, stock_quantity, reorder_level,
-                    image_path, is_active, created_at, updated_at
-                FROM products
-                WHERE is_active = 1
-                ORDER BY name
+                    p.id, p.name, p.description, p.category, p.barcode,
+                    p.price, p.cost_price, p.stock_quantity, p.reorder_level,
+                    p.image_path, p.is_active, p.created_at, p.updated_at,
+                    COALESCE(SUM(si.subtotal), 0) as total_sales
+                FROM products p
+                LEFT JOIN sale_items si ON p.id = si.product_id
+                WHERE p.is_active = 1
+                GROUP BY p.id
+                ORDER BY p.name
             """)
             products = [{
                 "id": row[0],
@@ -44,7 +47,8 @@ class InventoryService:
                 "is_active": bool(row[10]),
                 "created_at": row[11],
                 "updated_at": row[12],
-                "last_updated": row[12]  # Alias for backward compatibility
+                "last_updated": row[12],  # Alias for backward compatibility
+                "total_sales": float(row[13])
             } for row in cursor.fetchall()]
             print("[DEBUG] get_all_products loaded:", products)
             return products

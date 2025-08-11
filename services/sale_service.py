@@ -80,7 +80,7 @@ class SaleService:
                         item["quantity"],
                         item["price"],
                         item.get("discount_percent", 0.0),
-                        item["quantity"] * item["price"]
+                        (item["quantity"] * item["price"]) * (1 - item.get("discount_percent", 0.0) / 100)
                     ))
                     
                     # Update product stock
