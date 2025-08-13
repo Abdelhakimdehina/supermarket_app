@@ -57,7 +57,11 @@ class ReportsService:
                 GROUP BY payment_method
             """, (start_date, end_date))
             
-            payment_methods = cursor.fetchall()
+            payment_methods = [{
+                'payment_method': row[0],
+                'count': row[1],
+                'total': row[2]
+            } for row in cursor.fetchall()]
 
             # Get hourly sales distribution
             cursor.execute("""
@@ -71,7 +75,11 @@ class ReportsService:
                 ORDER BY hour
             """, (start_date, end_date))
             
-            hourly_sales = cursor.fetchall()
+            hourly_sales = [{
+                'hour': row[0],
+                'count': row[1],
+                'total': row[2]
+            } for row in cursor.fetchall()]
 
         return {
             'summary': summary,
@@ -106,7 +114,14 @@ class ReportsService:
                 ORDER BY total_quantity DESC
                 LIMIT ?
             """, (start_date, end_date, limit))
-            return cursor.fetchall()
+            return [{
+                'id': row[0],
+                'name': row[1],
+                'category': row[2],
+                'total_quantity': row[3],
+                'total_revenue': row[4],
+                'times_sold': row[5]
+            } for row in cursor.fetchall()]
     
     def get_inventory_status(self) -> Dict[str, Any]:
         """Get inventory status report"""
@@ -121,7 +136,15 @@ class ReportsService:
                 WHERE stock_quantity <= reorder_level
                 ORDER BY (stock_quantity * 1.0 / reorder_level)
             """)
-            low_stock = cursor.fetchall()
+            low_stock = [{
+                'id': row[0],
+                'name': row[1],
+                'category': row[2],
+                'stock_quantity': row[3],
+                'reorder_level': row[4],
+                'price': row[5],
+                'cost_price': row[6]
+            } for row in cursor.fetchall()]
             
             # Get category summary
             cursor.execute("""
@@ -133,7 +156,12 @@ class ReportsService:
                 FROM products
                 GROUP BY category
             """)
-            categories = cursor.fetchall()
+            categories = [{
+                'category': row[0],
+                'total_products': row[1],
+                'total_stock': row[2],
+                'stock_value': row[3]
+            } for row in cursor.fetchall()]
             
             # Get overall summary
             cursor.execute("""
@@ -185,7 +213,15 @@ class ReportsService:
                 ORDER BY total_spent DESC
                 LIMIT 10
             """, (start_date, end_date))
-            top_customers = cursor.fetchall()
+            top_customers = [{
+                'id': row[0],
+                'name': row[1],
+                'visit_count': row[2],
+                'total_spent': row[3],
+                'average_purchase': row[4],
+                'last_visit': row[5],
+                'loyalty_points': row[6]
+            } for row in cursor.fetchall()]
             
             # Get customer segments
             cursor.execute("""
@@ -213,7 +249,12 @@ class ReportsService:
                 FROM customer_stats
                 GROUP BY segment
             """, (start_date, end_date))
-            segments = cursor.fetchall()
+            segments = [{
+                'segment': row[0],
+                'customer_count': row[1],
+                'segment_revenue': row[2],
+                'avg_visits': row[3]
+            } for row in cursor.fetchall()]
             
             # Get overall summary
             cursor.execute("""
