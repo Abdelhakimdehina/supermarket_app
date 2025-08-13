@@ -2,8 +2,7 @@ import customtkinter as ctk
 from typing import Dict, Any, Optional, List
 import datetime
 from decimal import Decimal
-import os
-from PIL import Image
+from utils.product_images import ProductImageHandler
 
 from config.constants import (
     PADDING_SMALL, PADDING_MEDIUM, PADDING_LARGE,
@@ -29,10 +28,8 @@ class POSScreen(BaseFrame):
         self.sale_service = SaleService()
         self.session_manager = SessionManager()
 
-        super().__init__(master, **kwargs)
 
-        # Initialize payment_icons dictionary first
-        self.payment_icons = {}
+        super().__init__(master, **kwargs)
         
         # Current cart items
         self.cart_items: List[Dict[str, Any]] = []
@@ -44,38 +41,7 @@ class POSScreen(BaseFrame):
         # Set background color
         self.configure(fg_color=("#f0f0f0", "#2c3e50"))
         
-        # Load payment icons after everything else is initialized
-        try:
-            self.load_payment_icons()
-        except Exception as e:
-            print(f"Error loading payment icons: {e}")
-            # Ensure payment_icons is still a valid dictionary even if loading fails
-            self.payment_icons = {}
     
-    def load_payment_icons(self):
-        """Load payment icons from the assets folder."""
-        # Correctly determine the path to the assets directory from pos_screen.py
-        # __file__ -> pos_screen.py
-        # os.path.dirname(__file__) -> .../ui/screens/pos
-        # The assets folder is at .../assets
-        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-        icon_path = os.path.join(base_path, "assets", "icons")
-
-        icon_files = {
-            PAYMENT_CASH: "cash.png",
-            PAYMENT_CARD: "card.png",
-            PAYMENT_MOBILE: "mobile.png"
-        }
-        for payment_method, filename in icon_files.items():
-            try:
-                full_path = os.path.join(icon_path, filename)
-                if os.path.exists(full_path):
-                    image = Image.open(full_path)
-                    self.payment_icons[payment_method] = ctk.CTkImage(light_image=image, dark_image=image, size=(24, 24))
-                else:
-                    print(f"Icon not found: {full_path}")
-            except Exception as e:
-                print(f"Error loading icon {filename}: {e}")
 
     def init_ui(self):
         """Initialize UI components"""
@@ -342,20 +308,13 @@ class POSScreen(BaseFrame):
         payment_options_frame.grid_columnconfigure((0, 1, 2), weight=1)
 
         for i, method in enumerate(PAYMENT_METHODS):
-            # Safely get icon, handle case where payment_icons might not be initialized yet
-            icon = getattr(self, 'payment_icons', {}).get(method)
             rb = ctk.CTkRadioButton(
                 payment_options_frame,
                 text=method,
                 variable=self.payment_method_var,
-                value=method
+                value=method,
+                font=ctk.CTkFont(size=12)
             )
-            # Only add image if it exists and is valid
-            if icon is not None:
-                try:
-                    rb.configure(image=icon, compound="left")
-                except Exception as e:
-                    print(f"Error setting icon for {method}: {e}")
             rb.grid(row=0, column=i, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="w")
         
         # Action buttons
@@ -475,7 +434,23 @@ class POSScreen(BaseFrame):
         """Create a product card widget"""
         card = ctk.CTkFrame(parent)
         card.grid_columnconfigure(0, weight=1)
-        card.configure(width=200, height=200)
+        card.configure(width=200, height=250)
+
+        # Product image using image handler utility
+        image_handler = ProductImageHandler()
+        product_image = image_handler.get_product_image(
+            product.get('image_path', ''), 
+            size=(120, 80)
+        )
+        
+        if product_image:
+            # Create label with actual product image
+            image_label = ctk.CTkLabel(card, image=product_image, text="")
+        else:
+            # Create placeholder label
+            image_label = image_handler.create_placeholder_label(card, size=(120, 80))
+        
+        image_label.grid(row=0, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
 
         # Product name
         name_label = ctk.CTkLabel(
@@ -484,7 +459,7 @@ class POSScreen(BaseFrame):
             font=ctk.CTkFont(size=14, weight="bold"),
             wraplength=180
         )
-        name_label.grid(row=0, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
+        name_label.grid(row=1, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
 
         # Product price
         price_label = ctk.CTkLabel(
@@ -494,7 +469,7 @@ class POSScreen(BaseFrame):
             text_color=("#00adb5", "#00adb5"),
             anchor="e"
         )
-        price_label.grid(row=1, column=0, padx=PADDING_SMALL, pady=(0, PADDING_SMALL), sticky="ew")
+        price_label.grid(row=2, column=0, padx=PADDING_SMALL, pady=(0, PADDING_SMALL), sticky="ew")
 
         # Product category
         category_label = ctk.CTkLabel(
@@ -503,7 +478,7 @@ class POSScreen(BaseFrame):
             font=ctk.CTkFont(size=10),
             text_color="gray"
         )
-        category_label.grid(row=2, column=0, padx=PADDING_SMALL, pady=(0, PADDING_SMALL), sticky="ew")
+        category_label.grid(row=3, column=0, padx=PADDING_SMALL, pady=(0, PADDING_SMALL), sticky="ew")
         
         # Stock status
         stock_label = ctk.CTkLabel(
@@ -512,7 +487,7 @@ class POSScreen(BaseFrame):
             font=ctk.CTkFont(size=10),
             text_color="green" if product['stock'] > 0 else "red"
         )
-        stock_label.grid(row=3, column=0, padx=PADDING_SMALL, pady=(0, PADDING_SMALL), sticky="ew")
+        stock_label.grid(row=4, column=0, padx=PADDING_SMALL, pady=(0, PADDING_SMALL), sticky="ew")
         
         # Add to cart button
         add_button = ctk.CTkButton(
@@ -522,7 +497,7 @@ class POSScreen(BaseFrame):
             state="normal" if product['stock'] > 0 else "disabled",
             width=160  # Fixed button width
         )
-        add_button.grid(row=4, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
+        add_button.grid(row=5, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
         
         return card
     

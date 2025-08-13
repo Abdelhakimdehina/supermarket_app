@@ -64,13 +64,6 @@ class CustomerSelectorDialog(ctk.CTkToplevel):
         )
         search_button.grid(row=0, column=1, padx=PADDING_SMALL)
         
-        # New customer button
-        new_customer_button = ctk.CTkButton(
-            self,
-            text="New Customer",
-            command=self.create_customer
-        )
-        new_customer_button.grid(row=1, column=0, sticky="e", padx=PADDING_MEDIUM)
         
         # Customer list
         columns = ("Name", "Phone", "Email", "Address")
@@ -206,10 +199,6 @@ class CustomerSelectorDialog(ctk.CTkToplevel):
             address_label.grid(row=row, column=3, sticky="w", padx=PADDING_SMALL, pady=2)
             address_label.bind("<Button-1>", lambda e, c=customer: self.on_customer_click(c))
     
-    def create_customer(self):
-        """Open dialog to create a new customer"""
-        # This will be implemented later with a separate dialog
-        pass
     
     def on_customer_click(self, customer: Any):
         """Handle customer selection"""
