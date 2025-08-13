@@ -12,48 +12,30 @@ class ProductService:
     def __init__(self):
         """Initialize the service"""
         self.db_path = DATABASE_PATH
+        self._products_cache = None
+        self._cache_timestamp = None
     
     def get_connection(self) -> sqlite3.Connection:
         """Get database connection"""
         return sqlite3.connect(self.db_path)
     
-    def get_products(
-        self, 
-        category: Optional[str] = None, 
-        search_term: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """Get products based on category and search term"""
+    def _load_all_products(self) -> List[Dict[str, Any]]:
+        """Load all products from database"""
         conn = get_db_connection()
         cursor = conn.cursor()
         
         try:
-            # Base query
+            # Load all active products
             query = """
                 SELECT id, name, description, category, barcode,
                        price, cost_price, stock_quantity, reorder_level,
                        image_path, is_active, created_at, updated_at
                 FROM products
                 WHERE is_active = 1
+                ORDER BY name
             """
-            params = []
             
-            # Add category filter if provided
-            if category:
-                query += " AND category = ?"
-                params.append(category)
-            
-            # Add search filter if provided
-            if search_term:
-                query += """ AND (
-                    name LIKE ? OR 
-                    description LIKE ? OR 
-                    barcode LIKE ?
-                )"""
-                search_pattern = f"%{search_term}%"
-                params.extend([search_pattern, search_pattern, search_pattern])
-            
-            # Execute query
-            cursor.execute(query, tuple(params))
+            cursor.execute(query)
             rows = cursor.fetchall()
             
             # Convert rows to dictionaries
@@ -85,6 +67,55 @@ class ProductService:
         finally:
             cursor.close()
             conn.close()
+    
+    def _get_cached_products(self) -> List[Dict[str, Any]]:
+        """Get products from cache or load from database"""
+        import time
+        current_time = time.time()
+        
+        # Cache for 30 seconds
+        if (self._products_cache is None or 
+            self._cache_timestamp is None or 
+            current_time - self._cache_timestamp > 30):
+            
+            self._products_cache = self._load_all_products()
+            self._cache_timestamp = current_time
+        
+        return self._products_cache or []
+    
+    def clear_cache(self):
+        """Clear the products cache"""
+        self._products_cache = None
+        self._cache_timestamp = None
+
+    def get_products(
+        self, 
+        category: Optional[str] = None, 
+        search_term: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get products based on category and search term"""
+        # Get all products from cache
+        all_products = self._get_cached_products()
+        
+        # Filter products in memory (much faster than DB queries)
+        filtered_products = []
+        
+        for product in all_products:
+            # Apply category filter
+            if category and product['category'] != category:
+                continue
+            
+            # Apply search filter
+            if search_term:
+                search_lower = search_term.lower()
+                if not (search_lower in product['name'].lower() or
+                       search_lower in product['description'].lower() or
+                       search_lower in product['barcode'].lower()):
+                    continue
+            
+            filtered_products.append(product)
+        
+        return filtered_products
     
     def get_product(self, product_id: int) -> Optional[Dict[str, Any]]:
         """Get a single product by ID"""

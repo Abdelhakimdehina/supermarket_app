@@ -35,6 +35,9 @@ class POSScreen(BaseFrame):
         self.cart_items: List[Dict[str, Any]] = []
         self.held_sales: List[Dict[str, Any]] = []
         
+        # Search debouncing
+        self.search_timer = None
+        
         # Selected customer
         self.selected_customer = None
         
@@ -102,7 +105,7 @@ class POSScreen(BaseFrame):
         search_frame.grid_columnconfigure(0, weight=1)
         
         self.search_var = ctk.StringVar()
-        self.search_var.trace_add("write", lambda *args: self.search_products())
+        self.search_var.trace_add("write", lambda *args: self.debounced_search())
         
         search_entry = ctk.CTkEntry(
             search_frame,
@@ -146,7 +149,7 @@ class POSScreen(BaseFrame):
             command=lambda: self.filter_by_category(None),
             fg_color="transparent",
             border_width=1,
-            text_color=("gray10", "gray90")
+            text_color="black"
         )
         all_button.grid(row=0, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL)
 
@@ -158,7 +161,7 @@ class POSScreen(BaseFrame):
                 command=lambda cat=category: self.filter_by_category(cat),
                 fg_color="transparent",
                 border_width=1,
-                text_color=("gray10", "gray90")
+                text_color="black"
             )
             category_button.grid(row=0, column=i+1, padx=PADDING_SMALL, pady=PADDING_SMALL)
 
@@ -500,6 +503,12 @@ class POSScreen(BaseFrame):
         add_button.grid(row=5, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL, sticky="ew")
         
         return card
+    
+    def debounced_search(self):
+        """Debounced search to avoid searching on every keystroke"""
+        if self.search_timer:
+            self.after_cancel(self.search_timer)
+        self.search_timer = self.after(300, self.search_products)  # 300ms delay
     
     def search_products(self):
         """Search for products"""

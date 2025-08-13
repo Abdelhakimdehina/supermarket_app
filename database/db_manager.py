@@ -151,6 +151,14 @@ class DBManager:
         )
         ''')
         
+        # Create indexes for performance
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_products_name ON products(name)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_products_active ON products(is_active)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(sale_date)')
+        
         # Commit changes
         self.conn.commit()
     

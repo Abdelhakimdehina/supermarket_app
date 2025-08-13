@@ -50,7 +50,6 @@ class InventoryService:
                 "last_updated": row[12],  # Alias for backward compatibility
                 "total_sales": float(row[13])
             } for row in cursor.fetchall()]
-            print("[DEBUG] get_all_products loaded:", products)
             return products
     
     def search_products(self, search_term: str) -> List[Dict[str, Any]]:
